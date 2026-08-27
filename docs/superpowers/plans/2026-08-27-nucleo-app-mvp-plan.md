@@ -978,11 +978,13 @@ git commit -m "feat: lib/split-logic con cálculo de reparto (regular/big/custom
 - Create: `app/(auth)/reset-password/actions.ts`
 - Create: `app/auth/logout/route.ts`
 - Create: `lib/validation/auth.ts`
+- Create: `components/site-header.tsx`
+- Modify: `app/layout.tsx` (generado por Task 1 con el starter de Next.js — se reemplaza para incluir `<SiteHeader />`)
 - Test: `lib/validation/auth.test.ts`
 
 **Interfaces:**
 - Consumes: `createClient()` de `lib/supabase/server.ts` (Task 2)
-- Produces: rutas `/signup`, `/login`, `/forgot-password`, `/reset-password`; esquemas zod `signUpSchema`, `signInSchema` reutilizados por Task 8 (redirección post-login según si el usuario ya tiene hogar)
+- Produces: rutas `/signup`, `/login`, `/forgot-password`, `/reset-password`; esquemas zod `signUpSchema`, `signInSchema` reutilizados por Task 8 (redirección post-login según si el usuario ya tiene hogar); `<SiteHeader />` — único punto de la UI con el botón de cerrar sesión, usado por todas las páginas vía `app/layout.tsx`
 
 - [ ] **Step 1: Escribir el test de validación (falla primero)**
 
@@ -1240,21 +1242,69 @@ export async function POST() {
 }
 ```
 
+- [ ] **Step 9b: Header con botón de cerrar sesión (único punto de logout visible en la UI)**
+
+Crear `components/site-header.tsx`:
+
+```tsx
+import { createClient } from "@/lib/supabase/server";
+
+export async function SiteHeader() {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+
+  return (
+    <header className="flex items-center justify-between border-b px-4 py-3">
+      <a href="/" className="font-semibold">
+        Gastos en pareja
+      </a>
+      {data.user && (
+        <form action="/auth/logout" method="post">
+          <button type="submit" className="text-sm text-muted-foreground underline">
+            Cerrar sesión
+          </button>
+        </form>
+      )}
+    </header>
+  );
+}
+```
+
+Modificar `app/layout.tsx` (generado por `create-next-app` en Task 1) para incluir `<SiteHeader />` antes de `{children}` dentro del `<body>`:
+
+```tsx
+import { SiteHeader } from "@/components/site-header";
+import "./globals.css";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="es">
+      <body>
+        <SiteHeader />
+        {children}
+      </body>
+    </html>
+  );
+}
+```
+
+(conservar cualquier metadata/font que `create-next-app` haya generado en ese archivo, solo insertar `<SiteHeader />`).
+
 - [ ] **Step 10: Verificación manual del flujo completo**
 
 ```bash
 npm run dev
 ```
 
-Abrir `http://localhost:3000/signup`, crear una cuenta de prueba, confirmar redirección a `/onboarding` (la página se crea en Task 8 — por ahora puede dar 404, lo importante es confirmar que el registro y la sesión funcionan). Cerrar sesión con un `fetch("/auth/logout", { method: "POST" })` desde la consola del navegador y confirmar que redirige a `/login`. Iniciar sesión de nuevo con las mismas credenciales.
+Abrir `http://localhost:3000/signup`, crear una cuenta de prueba, confirmar redirección a `/onboarding` (la página se crea en Task 8 — por ahora puede dar 404, lo importante es confirmar que el registro y la sesión funcionan). Confirmar que el header muestra el botón "Cerrar sesión" y que al hacer clic redirige a `/login`. Iniciar sesión de nuevo con las mismas credenciales y confirmar que el botón vuelve a aparecer.
 
-Expected: registro, logout y login funcionan sin error; un correo repetido en `/signup` muestra "Ese correo ya está registrado".
+Expected: registro, logout (por el botón visible del header, no solo por `fetch` manual) y login funcionan sin error; un correo repetido en `/signup` muestra "Ese correo ya está registrado"; el botón "Cerrar sesión" no aparece si no hay sesión activa (ej. en `/login`).
 
 - [ ] **Step 11: Commit**
 
 ```bash
-git add app/\(auth\) app/auth lib/validation
-git commit -m "feat: auth completa (registro, login, logout, recuperar contraseña)"
+git add app/\(auth\) app/auth app/layout.tsx components/site-header.tsx lib/validation
+git commit -m "feat: auth completa (registro, login, logout, recuperar contraseña) + header con logout"
 ```
 
 ---
@@ -1615,13 +1665,14 @@ git commit -m "feat: generar código de invitación y unirse a un hogar existent
 
 **Files:**
 - Create: `app/transactions/new/page.tsx`
+- Create: `components/transaction-form.tsx`
 - Create: `app/transactions/actions.ts`
 - Create: `lib/validation/transaction.ts`
 - Test: `lib/validation/transaction.test.ts`
 
 **Interfaces:**
 - Consumes: `createClient()` (Task 2), categorías del hogar (Task 4/8)
-- Produces: `createTransactionSchema`; Server Action `createTransaction` reutilizada como base por Task 11 (editar)
+- Produces: `createTransactionSchema`; Server Action `createTransaction`; Client Component `<TransactionForm>` (props: `categories`, `members`, `action`, `defaultValues?`) — Task 11 lo reutiliza tal cual para editar, sin duplicar JSX
 
 - [ ] **Step 1: Escribir el test de validación (falla primero)**
 
@@ -1756,9 +1807,158 @@ export async function createTransaction(householdId: string, prevState: { error:
 }
 ```
 
-- [ ] **Step 6: Página del formulario**
+- [ ] **Step 6: Componente de formulario reutilizable**
 
-Crear `app/transactions/new/page.tsx` como Server Component que obtiene `household_id`, la lista de `categories` y `household_members` (con sus `display_name` vía join a `profiles`) del hogar del usuario actual, y los pasa a un Client Component con el formulario (`<Select>` de shadcn/ui para categoría, quién pagó y tipo de reparto; `<Input type="number">` para monto; campo `customSplitPercentage` que solo se muestra si `splitType === "custom"`).
+Crear `components/transaction-form.tsx` — este mismo componente lo reutiliza Task 11 para editar, sin duplicar JSX:
+
+```tsx
+"use client";
+
+import { useActionState, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+export interface TransactionFormValues {
+  amount: string;
+  concept: string;
+  categoryId: string;
+  paidBy: string;
+  date: string;
+  splitType: "regular" | "big" | "custom";
+  customSplitPercentage?: string;
+}
+
+interface TransactionFormProps {
+  categories: { id: string; name: string }[];
+  members: { userId: string; displayName: string }[];
+  action: (prevState: { error: string | null }, formData: FormData) => Promise<{ error: string | null }>;
+  defaultValues?: TransactionFormValues;
+  submitLabel: string;
+}
+
+export function TransactionForm({ categories, members, action, defaultValues, submitLabel }: TransactionFormProps) {
+  const [state, formAction, pending] = useActionState(action, { error: null });
+  const [splitType, setSplitType] = useState(defaultValues?.splitType ?? "regular");
+
+  return (
+    <form action={formAction} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="amount">Monto</Label>
+        <Input id="amount" name="amount" type="number" step="0.01" min="0.01" required defaultValue={defaultValues?.amount} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="concept">Concepto</Label>
+        <Input id="concept" name="concept" required defaultValue={defaultValues?.concept} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="categoryId">Categoría</Label>
+        <Select name="categoryId" defaultValue={defaultValues?.categoryId}>
+          <SelectTrigger id="categoryId"><SelectValue placeholder="Elige una categoría" /></SelectTrigger>
+          <SelectContent>
+            {categories.map((c) => (
+              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="paidBy">Quién pagó</Label>
+        <Select name="paidBy" defaultValue={defaultValues?.paidBy}>
+          <SelectTrigger id="paidBy"><SelectValue placeholder="Elige quién pagó" /></SelectTrigger>
+          <SelectContent>
+            {members.map((m) => (
+              <SelectItem key={m.userId} value={m.userId}>{m.displayName}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="date">Fecha</Label>
+        <Input id="date" name="date" type="date" required defaultValue={defaultValues?.date ?? new Date().toISOString().slice(0, 10)} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="splitType">Tipo de reparto</Label>
+        <Select name="splitType" defaultValue={splitType} onValueChange={(v) => setSplitType(v as typeof splitType)}>
+          <SelectTrigger id="splitType"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="regular">Regular (según % del hogar)</SelectItem>
+            <SelectItem value="big">Grande / súbito (50/50)</SelectItem>
+            <SelectItem value="custom">Personalizado</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {splitType === "custom" && (
+        <div className="space-y-2">
+          <Label htmlFor="customSplitPercentage">% para el owner del hogar</Label>
+          <Input
+            id="customSplitPercentage"
+            name="customSplitPercentage"
+            type="number"
+            min={0}
+            max={100}
+            defaultValue={defaultValues?.customSplitPercentage}
+          />
+        </div>
+      )}
+      {state.error && <p className="text-sm text-red-600">{state.error}</p>}
+      <Button type="submit" disabled={pending} className="w-full">
+        {pending ? "Guardando..." : submitLabel}
+      </Button>
+    </form>
+  );
+}
+```
+
+- [ ] **Step 6b: Página que usa el formulario para crear**
+
+Crear `app/transactions/new/page.tsx` como Server Component que obtiene `household_id` del usuario actual (vía `household_members`), la lista de `categories` del hogar y sus `household_members` (con `display_name` desde un join a `profiles`), y renderiza:
+
+```tsx
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { TransactionForm } from "@/components/transaction-form";
+import { createTransaction } from "../actions";
+
+export default async function NewTransactionPage() {
+  const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) redirect("/login");
+
+  const { data: membership } = await supabase
+    .from("household_members")
+    .select("household_id")
+    .eq("user_id", userData.user.id)
+    .single();
+  if (!membership) redirect("/onboarding");
+
+  const [{ data: categories }, { data: members }] = await Promise.all([
+    supabase.from("categories").select("id, name").eq("household_id", membership.household_id).order("name"),
+    supabase
+      .from("household_members")
+      .select("user_id, profiles(display_name)")
+      .eq("household_id", membership.household_id),
+  ]);
+
+  const membersFormatted = (members ?? []).map((m: any) => ({
+    userId: m.user_id,
+    displayName: m.profiles?.display_name ?? "Miembro",
+  }));
+
+  return (
+    <div className="mx-auto mt-8 max-w-md px-4">
+      <h1 className="mb-6 text-2xl font-semibold">Registrar gasto</h1>
+      <TransactionForm
+        categories={categories ?? []}
+        members={membersFormatted}
+        action={createTransaction.bind(null, membership.household_id)}
+        submitLabel="Registrar gasto"
+      />
+    </div>
+  );
+}
+```
 
 - [ ] **Step 7: Verificación manual**
 
@@ -1773,7 +1973,7 @@ Expected: 3 filas nuevas en `transactions`, ningún intento inválido crea una f
 - [ ] **Step 8: Commit**
 
 ```bash
-git add app/transactions lib/validation/transaction.ts lib/validation/transaction.test.ts
+git add app/transactions components/transaction-form.tsx lib/validation/transaction.ts lib/validation/transaction.test.ts
 git commit -m "feat: registrar un gasto con validación de monto y tipo de reparto"
 ```
 
@@ -1786,8 +1986,8 @@ git commit -m "feat: registrar un gasto con validación de monto y tipo de repar
 - Modify: `app/transactions/actions.ts` (agregar `updateTransaction` y `deleteTransaction`)
 
 **Interfaces:**
-- Consumes: `createTransactionSchema` (Task 10), tabla `transactions` con `updated_at`/`updated_by` (Task 5)
-- Produces: `updateTransaction`, `deleteTransaction` — historia 8 (Must have) del backlog
+- Consumes: `createTransactionSchema` (Task 10), `<TransactionForm>` (Task 10), tabla `transactions` con `updated_at`/`updated_by` (Task 5)
+- Produces: `updateTransaction`, `deleteTransaction` — historia 8 (Must have) del backlog. El botón de borrar en la lista se conecta en Task 12 (ahí vive `transactions-table.tsx`), no aquí.
 
 - [ ] **Step 1: Agregar `updateTransaction` y `deleteTransaction` a `app/transactions/actions.ts`**
 
@@ -1847,21 +2047,66 @@ export async function deleteTransaction(transactionId: string) {
 }
 ```
 
-- [ ] **Step 2: Página de edición**
+- [ ] **Step 2: Página de edición, reutilizando `<TransactionForm>` de Task 10**
 
-Crear `app/transactions/[id]/edit/page.tsx`: Server Component que lee la transacción por `id` (RLS ya garantiza que solo se puede leer si es del hogar del usuario), precarga el mismo formulario de Task 10 (extraer el formulario a un componente compartido `components/transaction-form.tsx` que reciba `defaultValues` opcionales, para no duplicar el JSX) y llama a `updateTransaction` en vez de `createTransaction`.
+Crear `app/transactions/[id]/edit/page.tsx`:
 
-- [ ] **Step 3: Botón de borrar con confirmación**
+```tsx
+import { redirect, notFound } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { TransactionForm } from "@/components/transaction-form";
+import { updateTransaction } from "../../actions";
 
-En la lista de transacciones (se termina de construir en Task 12), agregar un botón "Borrar" que abre un `<Dialog>` de confirmación de shadcn/ui antes de llamar a `deleteTransaction`.
+export default async function EditTransactionPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) redirect("/login");
 
-- [ ] **Step 4: Verificación manual**
+  const { data: tx } = await supabase.from("transactions").select("*").eq("id", id).single();
+  if (!tx) notFound(); // RLS ya bloquea leer transacciones de otro hogar antes de llegar aquí
 
-Editar una transacción existente cambiando el monto y el tipo de reparto — confirmar que se actualiza `updated_at`/`updated_by` en la base. Borrar otra y confirmar que desaparece de la lista y de cualquier cálculo de balance.
+  const { data: categories } = await supabase.from("categories").select("id, name").eq("household_id", tx.household_id).order("name");
+  const { data: members } = await supabase
+    .from("household_members")
+    .select("user_id, profiles(display_name)")
+    .eq("household_id", tx.household_id);
 
-Expected: los cambios persisten correctamente; la fila borrada ya no existe en `transactions`.
+  const membersFormatted = (members ?? []).map((m: any) => ({
+    userId: m.user_id,
+    displayName: m.profiles?.display_name ?? "Miembro",
+  }));
 
-- [ ] **Step 5: Commit**
+  return (
+    <div className="mx-auto mt-8 max-w-md px-4">
+      <h1 className="mb-6 text-2xl font-semibold">Editar gasto</h1>
+      <TransactionForm
+        categories={categories ?? []}
+        members={membersFormatted}
+        action={updateTransaction.bind(null, tx.id)}
+        submitLabel="Guardar cambios"
+        defaultValues={{
+          amount: String(tx.amount),
+          concept: tx.concept,
+          categoryId: tx.category_id,
+          paidBy: tx.paid_by,
+          date: tx.date,
+          splitType: tx.split_type,
+          customSplitPercentage: tx.custom_split_percentage ? String(tx.custom_split_percentage) : undefined,
+        }}
+      />
+    </div>
+  );
+}
+```
+
+- [ ] **Step 3: Verificación manual**
+
+Editar una transacción existente cambiando el monto y el tipo de reparto — confirmar que se actualiza `updated_at`/`updated_by` en la base y que el formulario llegó precargado con los valores anteriores. `deleteTransaction` se verifica en Task 12, una vez exista el botón de borrar en la tabla de historial.
+
+Expected: los cambios persisten correctamente.
+
+- [ ] **Step 4: Commit**
 
 ```bash
 git add app/transactions
@@ -1873,14 +2118,14 @@ git commit -m "feat: editar y borrar gastos registrados, con rastro de auditorí
 ## Task 12: Ver balance actual e historial de gastos
 
 **Files:**
-- Create: `app/page.tsx`
+- Modify: `app/page.tsx` (generado por `create-next-app` en Task 1 como página de bienvenida; se reemplaza por completo)
 - Create: `components/balance-card.tsx`
 - Create: `components/transactions-table.tsx`
 - Test: `app/balance.test.ts`
 
 **Interfaces:**
-- Consumes: `calculateBalance` (Task 6), tabla `transactions` + `household_members` + `profiles`
-- Produces: página principal de la app — historias 9 y 15 del backlog
+- Consumes: `calculateBalance` (Task 6), `deleteTransaction` (Task 11), tabla `transactions` + `household_members` + `profiles`
+- Produces: página principal de la app — historias 9, 15 y 18 del backlog; único lugar donde se conecta el botón de borrar de `deleteTransaction`
 
 - [ ] **Step 1: Escribir un test de integración del cálculo de balance con datos reales de forma (falla primero por no existir el helper)**
 
@@ -1917,17 +2162,204 @@ npm run test -- app/balance.test.ts
 
 Expected: PASS (ya reutiliza `split-logic.ts` de Task 6, así que esto confirma la integración del cálculo, no requiere implementación nueva).
 
-- [ ] **Step 3: Página principal — Server Component**
+- [ ] **Step 3: Componente de balance, con la convención de signo explícita**
 
-Crear `app/page.tsx`: obtiene `household_id` del usuario (si no tiene, `redirect("/onboarding")`), consulta todos los `household_members` (con `display_name` vía join a `profiles`) y todas las `transactions` del hogar, mapea las transacciones al tipo `SplitTransaction` de `lib/split-logic`, llama a `calculateBalance`, y renderiza `<BalanceCard balance={balance} members={members} />` seguido de `<TransactionsTable transactions={transactions} members={members} categories={categories} />`.
+Crear `components/balance-card.tsx`. Convención de `calculateBalance` (Task 6): balance positivo de un miembro = los DEMÁS le deben esa cantidad; balance negativo = ese miembro debe esa cantidad a los demás. Con hogares de 2 miembros, `member[0]` y `member[1]` siempre tienen signos opuestos.
 
-- [ ] **Step 4: Componente de balance**
+```tsx
+import type { Balance } from "@/lib/split-logic";
 
-Crear `components/balance-card.tsx`: Client o Server Component simple que recibe `balance: Balance` y `members: {userId, displayName}[]`, y muestra frases como "Esperanza le debe $400.00 a Gustavo" (monto positivo de un miembro = los demás le deben esa cantidad en total) o "Todo cuadrado" si el balance de todos es 0.
+interface BalanceCardProps {
+  balance: Balance;
+  members: { userId: string; displayName: string }[];
+}
 
-- [ ] **Step 5: Tabla de historial**
+export function BalanceCard({ balance, members }: BalanceCardProps) {
+  const [a, b] = members;
+  if (!a || !b) return null;
 
-Crear `components/transactions-table.tsx` usando `<Table>` de shadcn/ui: columnas Fecha, Concepto, Categoría, Monto, Quién pagó, Reparto, y una columna de acciones con links "Editar" (a `/transactions/[id]/edit`) y el botón "Borrar" de Task 11.
+  const balanceA = balance[a.userId] ?? 0;
+  const isSquared = Math.abs(balanceA) < 0.01;
+
+  let text: string;
+  if (isSquared) {
+    text = "Todo cuadrado — nadie le debe nada a nadie.";
+  } else if (balanceA > 0) {
+    text = `${b.displayName} le debe $${balanceA.toFixed(2)} a ${a.displayName}.`;
+  } else {
+    text = `${a.displayName} le debe $${Math.abs(balanceA).toFixed(2)} a ${b.displayName}.`;
+  }
+
+  return (
+    <div className="rounded-lg border p-4">
+      <p className="text-lg font-medium">{text}</p>
+    </div>
+  );
+}
+```
+
+- [ ] **Step 4: Tabla de historial con edición y borrado**
+
+Crear `components/transactions-table.tsx`:
+
+```tsx
+"use client";
+
+import { useState, useTransition } from "react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { deleteTransaction } from "@/app/transactions/actions";
+
+interface Row {
+  id: string;
+  date: string;
+  concept: string;
+  categoryName: string;
+  amount: number;
+  paidByName: string;
+  splitType: string;
+}
+
+export function TransactionsTable({ rows }: { rows: Row[] }) {
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function handleDelete(id: string) {
+    startTransition(async () => {
+      await deleteTransaction(id);
+      setPendingId(null);
+    });
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Fecha</TableHead>
+          <TableHead>Concepto</TableHead>
+          <TableHead>Categoría</TableHead>
+          <TableHead>Monto</TableHead>
+          <TableHead>Quién pagó</TableHead>
+          <TableHead>Reparto</TableHead>
+          <TableHead>Acciones</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((row) => (
+          <TableRow key={row.id}>
+            <TableCell>{row.date}</TableCell>
+            <TableCell>{row.concept}</TableCell>
+            <TableCell>{row.categoryName}</TableCell>
+            <TableCell>${row.amount.toFixed(2)}</TableCell>
+            <TableCell>{row.paidByName}</TableCell>
+            <TableCell>{row.splitType}</TableCell>
+            <TableCell className="flex gap-2">
+              <a href={`/transactions/${row.id}/edit`} className="text-sm underline">
+                Editar
+              </a>
+              <Dialog open={pendingId === row.id} onOpenChange={(open) => setPendingId(open ? row.id : null)}>
+                <DialogTrigger asChild>
+                  <Button variant="destructive" size="sm">Borrar</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>¿Borrar este gasto?</DialogTitle>
+                  </DialogHeader>
+                  <p>&quot;{row.concept}&quot; — ${row.amount.toFixed(2)}. Esta acción no se puede deshacer.</p>
+                  <DialogFooter>
+                    <Button variant="destructive" disabled={isPending} onClick={() => handleDelete(row.id)}>
+                      {isPending ? "Borrando..." : "Sí, borrar"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+```
+
+- [ ] **Step 5: Página principal — Server Component**
+
+Reemplazar `app/page.tsx` (el starter de `create-next-app`) con:
+
+```tsx
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { calculateBalance, type HouseholdMember, type SplitTransaction } from "@/lib/split-logic";
+import { BalanceCard } from "@/components/balance-card";
+import { TransactionsTable } from "@/components/transactions-table";
+
+export default async function HomePage() {
+  const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) redirect("/login");
+
+  const { data: membership } = await supabase
+    .from("household_members")
+    .select("household_id")
+    .eq("user_id", userData.user.id)
+    .single();
+  if (!membership) redirect("/onboarding");
+
+  const [{ data: membersRaw }, { data: transactionsRaw }] = await Promise.all([
+    supabase
+      .from("household_members")
+      .select("user_id, role, default_split_percentage, profiles(display_name)")
+      .eq("household_id", membership.household_id),
+    supabase
+      .from("transactions")
+      .select("id, amount, concept, paid_by, date, split_type, custom_split_percentage, categories(name), profiles!transactions_paid_by_fkey(display_name)")
+      .eq("household_id", membership.household_id)
+      .order("date", { ascending: false }),
+  ]);
+
+  const members: HouseholdMember[] = (membersRaw ?? []).map((m: any) => ({
+    userId: m.user_id,
+    role: m.role,
+    defaultSplitPercentage: Number(m.default_split_percentage),
+  }));
+  const membersDisplay = (membersRaw ?? []).map((m: any) => ({
+    userId: m.user_id,
+    displayName: m.profiles?.display_name ?? "Miembro",
+  }));
+
+  const splitTxs: SplitTransaction[] = (transactionsRaw ?? []).map((t: any) => ({
+    amount: Number(t.amount),
+    paidBy: t.paid_by,
+    splitType: t.split_type,
+    customSplitPercentage: t.custom_split_percentage ? Number(t.custom_split_percentage) : null,
+  }));
+  const balance = calculateBalance(splitTxs, members);
+
+  const rows = (transactionsRaw ?? []).map((t: any) => ({
+    id: t.id,
+    date: t.date,
+    concept: t.concept,
+    categoryName: t.categories?.name ?? "",
+    amount: Number(t.amount),
+    paidByName: t.profiles?.display_name ?? "",
+    splitType: t.split_type,
+  }));
+
+  return (
+    <div className="mx-auto mt-8 max-w-3xl space-y-6 px-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Gastos del hogar</h1>
+        <a href="/transactions/new"><button className="rounded bg-primary px-4 py-2 text-primary-foreground">+ Registrar gasto</button></a>
+      </div>
+      <BalanceCard balance={balance} members={membersDisplay} />
+      <TransactionsTable rows={rows} />
+    </div>
+  );
+}
+```
+
+(Nota: el nombre exacto de la foreign key `transactions_paid_by_fkey` lo confirma Supabase automáticamente al crear la tabla en Task 5 según la convención `<tabla>_<columna>_fkey`; si el proyecto real generó un nombre distinto, usar el que muestre el error de Postgres o el editor de tablas de Supabase.)
 
 - [ ] **Step 6: Verificación manual**
 
@@ -1935,9 +2367,9 @@ Crear `components/transactions-table.tsx` usando `<Table>` de shadcn/ui: columna
 npm run dev
 ```
 
-Con las transacciones ya creadas en Tasks 10-11, abrir `/` y confirmar que el balance mostrado coincide con un cálculo manual hecho aparte (sumar a mano lo que le tocaba a cada quien vs. lo que pagó cada quien).
+Con las transacciones ya creadas en Tasks 10-11, abrir `/` y confirmar que el balance mostrado coincide con un cálculo manual hecho aparte (sumar a mano lo que le tocaba a cada quien vs. lo que pagó cada quien). Borrar una transacción desde el botón de la tabla (con el diálogo de confirmación) y confirmar que desaparece de la tabla y que el balance se recalcula al instante.
 
-Expected: el balance en pantalla es exacto.
+Expected: el balance en pantalla es exacto; borrar una transacción la quita de `transactions` y actualiza el balance mostrado.
 
 - [ ] **Step 7: Commit**
 
