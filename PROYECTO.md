@@ -86,7 +86,8 @@ git — Notion es la vista de seguimiento para el usuario como PM.
 - [x] Escribir spec del Mini-proyecto 1
 - [x] Documentación de PM (charter, roadmap, backlog, DoD) y ADRs
 - [x] Resolver las 3 preguntas abiertas del backlog
-- [ ] Plan de implementación (skill `writing-plans`)
+- [x] Plan de implementación (skill `writing-plans`) — [docs/superpowers/plans/2026-08-27-nucleo-app-mvp-plan.md](docs/superpowers/plans/2026-08-27-nucleo-app-mvp-plan.md), 15 tasks
+- [ ] El usuario requiere crear un proyecto en supabase.com antes del Task 2 (URL + anon key + service role key)
 - [ ] Implementación del Mini-proyecto 1 (subagentes)
 - [ ] Reporte de fase del Mini-proyecto 1
 - [x] Compartir una página de Notion con la integración y montar el tablero de PM
