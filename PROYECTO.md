@@ -21,7 +21,7 @@ fase.
 
 | # | Mini-proyecto | Estado |
 |---|---|---|
-| 0 | Fundación (carpeta, repo, docs, tablero de Notion como PM) | En curso — repo creado 2026-08-27; documentación de PM y ADRs listas; esperando token de Notion del usuario |
+| 0 | Fundación (carpeta, repo, docs, tablero de Notion como PM) | Prácticamente completa — repo, docs de PM, ADRs y tablero de Notion en vivo; falta solo decidir si se sube el repo a GitHub |
 | 1 | Núcleo de la app (auth, hogares, gastos, reparto, balance) | Diseño aprobado, spec escrita en [docs/superpowers/specs/2026-08-27-nucleo-app-mvp-design.md](docs/superpowers/specs/2026-08-27-nucleo-app-mvp-design.md), backlog en [docs/pm/03-backlog-mini-proyecto-1.md](docs/pm/03-backlog-mini-proyecto-1.md) — falta resolver 2 preguntas abiertas del backlog y luego el plan de implementación |
 | 2 | Presupuestos y Dashboard | No iniciado |
 | 3 | Deploy y pulido móvil (PWA) | No iniciado |
@@ -49,12 +49,14 @@ agente de PM al armar el backlog ya están resueltas: login con email+contraseñ
 `default_split_percentage` se fija al crear el hogar. Falta: revisión final del
 usuario y generar el plan de implementación (`writing-plans`).
 
-Notion: token de integración validado (workspace "Gustavo Alfredo Macias's
-Space"), pero sin ninguna página compartida todavía — es una restricción del
-propio Notion, no de esta sesión: la integración no puede ver nada hasta que el
-usuario comparta una página específica con ella desde la UI de Notion. Ese es el
-único paso manual que falta; el resto (crear la estructura del tablero) se hace
-por API en cuanto haya una página compartida.
+**Notion: tablero de PM ya montado y en vivo.** Página raíz:
+https://app.notion.com/p/Gastos-en-pareja-PM-3c9534bc10b480cf8cf9e64c5917b7e1 —
+contiene charter resumido, base de datos Roadmap (5 mini-proyectos), base de
+datos Backlog Mini-proyecto 1 (18 historias con Prioridad/Estado editables),
+glosario, checklist de Definition of Done con casillas reales, y resumen de
+ADRs. Construido por API (token en `.env.local`, git-ignored) tras compartir la
+página desde la UI de Notion. La fuente de verdad técnica sigue siendo el repo
+git — Notion es la vista de seguimiento para el usuario como PM.
 
 ## Decisiones clave ya tomadas (continuación — resueltas 2026-08-27 tras el backlog)
 
@@ -71,9 +73,6 @@ por API en cuanto haya una página compartida.
 
 ## Pendientes / preguntas abiertas
 
-- **Notion**: token guardado en `.env.local` (git-ignored) y validado. Falta que
-  el usuario comparta una página con la integración "Gastos Pareja PM" desde
-  Notion (botón "..." → Connections). No bloquea el resto del Mini-proyecto 1.
 - **Repo remoto**: se creó el repo local únicamente. Falta preguntar si se quiere
   subir a GitHub (recomendable para portafolio) — no se hace sin confirmación
   explícita.
@@ -90,4 +89,4 @@ por API en cuanto haya una página compartida.
 - [ ] Plan de implementación (skill `writing-plans`)
 - [ ] Implementación del Mini-proyecto 1 (subagentes)
 - [ ] Reporte de fase del Mini-proyecto 1
-- [ ] Compartir una página de Notion con la integración y montar el tablero de PM
+- [x] Compartir una página de Notion con la integración y montar el tablero de PM

@@ -37,7 +37,7 @@ Lista priorizada de todo el trabajo pendiente dentro de un bloque del roadmap,
 escrito como historias de usuario concretas. Es donde el roadmap se vuelve
 trabajo ejecutable.
 **En este proyecto:** [`03-backlog-mini-proyecto-1.md`](03-backlog-mini-proyecto-1.md)
-— 16 historias priorizadas para construir auth, hogares, gastos y balance.
+— 18 historias priorizadas para construir auth, hogares, gastos y balance.
 
 ### Historia de usuario (User Story)
 Forma de escribir un requerimiento desde la perspectiva de quien lo va a usar,
