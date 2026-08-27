@@ -303,10 +303,12 @@ git commit -m "feat: cliente de Supabase (browser, server, service role) y middl
 
 **Files:**
 - Create: `supabase/migrations/0001_households_profiles_members.sql`
+- Create: `supabase/migrations/0001.test.ts`
+- Create: `scripts/run-migration.mjs` (reutilizado sin cambios por Tasks 4 y 5)
 
 **Interfaces:**
-- Consumes: proyecto de Supabase de Task 2
-- Produces: tablas `households`, `profiles`, `household_members`; función `public.is_household_member(uuid) returns boolean`, usada por las políticas RLS de todas las tablas siguientes; trigger que crea automáticamente una fila en `profiles` al registrarse un usuario.
+- Consumes: proyecto de Supabase de Task 2; `DATABASE_URL` en `.env.local` (conexión directa a Postgres, ya verificada por el controller — no es la misma variable que las de Supabase Auth/API de Task 2)
+- Produces: tablas `households`, `profiles`, `household_members`; función `public.is_household_member(uuid) returns boolean`, usada por las políticas RLS de todas las tablas siguientes; trigger que crea automáticamente una fila en `profiles` al registrarse un usuario; `scripts/run-migration.mjs` como runner reutilizable de migraciones.
 
 Esta migración se aplica manualmente en el SQL Editor del dashboard de Supabase (o vía `supabase db push` si el usuario instala la CLI de Supabase — cualquiera de las dos funciona, se documenta la opción del dashboard por ser la más simple sin herramientas adicionales).
 
@@ -416,7 +418,45 @@ create policy "miembros editan el reparto dentro de su hogar"
 
 - [ ] **Step 2: Aplicar la migración**
 
-Copiar y correr el contenido del archivo en el SQL Editor del dashboard de Supabase del proyecto (Database → SQL Editor → New query → pegar → Run).
+`.env.local` ya tiene `DATABASE_URL` (conexión directa a Postgres, verificada por el controller antes de este task). Crear un runner reutilizable en `scripts/run-migration.mjs` — Tasks 4 y 5 lo reusan tal cual, no lo vuelvan a crear:
+
+```js
+import { readFileSync } from "node:fs";
+import { Client } from "pg";
+import "dotenv/config";
+
+const file = process.argv[2];
+if (!file) {
+  console.error("Uso: node scripts/run-migration.mjs <ruta-al-archivo.sql>");
+  process.exit(1);
+}
+
+const sql = readFileSync(file, "utf-8");
+const client = new Client({ connectionString: process.env.DATABASE_URL });
+
+await client.connect();
+try {
+  await client.query(sql);
+  console.log(`OK: ${file} aplicado.`);
+} finally {
+  await client.end();
+}
+```
+
+Instalar las dependencias que usa (una sola vez, Tasks 4-5 ya las tienen disponibles):
+
+```bash
+npm install -D pg dotenv
+npm install -D @types/pg
+```
+
+Correrlo contra esta migración:
+
+```bash
+node scripts/run-migration.mjs supabase/migrations/0001_households_profiles_members.sql
+```
+
+Expected: `OK: supabase/migrations/0001_households_profiles_members.sql aplicado.` — si falla con un error de sintaxis SQL o de política ya existente, leer el mensaje de Postgres con cuidado (suele ser exacto sobre la línea y el motivo) antes de reintentar.
 
 Expected: "Success. No rows returned."
 
@@ -450,7 +490,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/0001_households_profiles_members.sql supabase/migrations/0001.test.ts
+git add supabase/migrations/0001_households_profiles_members.sql supabase/migrations/0001.test.ts scripts/run-migration.mjs package.json package-lock.json
 git commit -m "feat(db): migración de households, profiles y household_members con RLS base"
 ```
 
@@ -515,7 +555,13 @@ create policy "miembros crean invitaciones en su hogar"
 
 - [ ] **Step 2: Aplicar la migración**
 
-Correr el archivo en el SQL Editor de Supabase, igual que Task 3.
+Reutilizar el runner que ya existe (`scripts/run-migration.mjs`, creado en Task 3 — no volver a crearlo):
+
+```bash
+node scripts/run-migration.mjs supabase/migrations/0002_categories_invites.sql
+```
+
+Expected: `OK: supabase/migrations/0002_categories_invites.sql aplicado.`
 
 - [ ] **Step 3: Constante de categorías por defecto**
 
@@ -629,7 +675,13 @@ create policy "miembros borran transacciones de su hogar"
 
 - [ ] **Step 2: Aplicar la migración**
 
-Correr el archivo en el SQL Editor de Supabase.
+Reutilizar el runner que ya existe (`scripts/run-migration.mjs`, creado en Task 3):
+
+```bash
+node scripts/run-migration.mjs supabase/migrations/0003_transactions.sql
+```
+
+Expected: `OK: supabase/migrations/0003_transactions.sql aplicado.`
 
 - [ ] **Step 3: Escribir la prueba de aislamiento entre hogares (falla primero)**
 
