@@ -1,6 +1,6 @@
 # Diseño: Núcleo de la app de gastos en pareja (Mini-proyecto 1 / MVP)
 
-**Fecha:** 2026-08-27
+**Fecha:** 2026-08-27 (actualizado el mismo día tras resolver 2 vacíos detectados tanto por el backlog de PM en `docs/pm/03-backlog-mini-proyecto-1.md`)
 **Estado:** Aprobado por el usuario (Gustavo/Rizo), pendiente de plan de implementación.
 
 ## Contexto
@@ -34,14 +34,17 @@ diseño → spec → plan → implementación → reporte de fase.
 | Stack | Next.js (App Router) + TypeScript + Supabase | Frontend/backend separados; todo-en-Supabase con mínimo código propio |
 | Notion | Tablero de PM del proyecto (fuera de la app) | Integración de datos dentro de la app; ambas cosas |
 | Datos históricos | La app arranca vacía | Importar las 2,117 transacciones ya categorizadas |
+| Método de login | Email + contraseña (con recuperación) | Magic link, o ambos disponibles |
+| Editar/borrar gastos | Sí, en el alcance del Mini-proyecto 1 | Posponer a un mini-proyecto posterior |
 
 ## Arquitectura
 
 - **Framework:** Next.js 14+ (App Router), TypeScript, desplegado en Vercel (capa
   gratuita/hobby).
-- **Backend de datos:** Supabase — Postgres administrado + Auth (email/password o
-  magic link) + Row Level Security (RLS) para aislar los datos por hogar a nivel de
-  base de datos, no solo con checks en el código de la app.
+- **Backend de datos:** Supabase — Postgres administrado + Auth (email + contraseña,
+  con recuperación de contraseña por correo) + Row Level Security (RLS) para aislar
+  los datos por hogar a nivel de base de datos, no solo con checks en el código de
+  la app.
 - **UI:** Tailwind CSS + shadcn/ui, diseño mobile-first, responsive en PC y celular.
 - **PWA:** manifest + service worker para poder instalar la app en la pantalla de
   inicio del celular sin construir una app nativa aparte.
@@ -102,7 +105,17 @@ transactions
   split_type (enum: regular | big | custom)
   custom_split_percentage (numeric, nullable)  -- solo si split_type = custom
   created_at
+  updated_at (nullable)
+  updated_by (fk -> profiles.id, nullable)  -- último miembro que editó o borró
 ```
+
+**Editar y borrar transacciones:** cualquier miembro del hogar puede editar o
+borrar cualquier transacción de su propio hogar (el registro es colaborativo, no
+exclusivo de quien la creó). Borrado es definitivo (hard delete) para el MVP — no
+hay papelera ni deshacer, eso queda fuera de alcance salvo que se pida
+explícitamente después. `updated_at`/`updated_by` quedan como rastro mínimo de
+auditoría. Editar o borrar una transacción no requiere lógica adicional para el
+balance porque este se recalcula al vuelo (ver más abajo).
 
 **Validación de porcentajes:** la suma de `default_split_percentage` de todos los
 miembros de un hogar debe ser exactamente 100 — se valida al invitar/unirse a un
@@ -131,7 +144,9 @@ efectivamente pagó, según `paid_by`).
 
 ## Flujo de autenticación / invitación
 
-1. Un usuario nuevo se registra (email/password o magic link vía Supabase Auth).
+1. Un usuario nuevo se registra con email + contraseña vía Supabase Auth. Puede
+   restablecer su contraseña por correo si la olvida (flujo estándar de Supabase
+   Auth).
 2. Si no pertenece a ningún hogar, se le ofrece: crear un hogar nuevo (se vuelve
    `owner`), o unirse a uno existente con un código de invitación.
 3. El `owner` de un hogar puede generar un código/link de invitación desde la app
@@ -158,8 +173,9 @@ efectivamente pagó, según `paid_by`).
   más vale la pena probar a fondo (casos: reparto regular, grande, custom, montos
   con decimales, redondeo).
 - **Playwright** para 1-2 flujos end-to-end críticos: login + registrar un gasto +
-  ver el balance actualizado. No se construye una suite exhaustiva de E2E para el
-  MVP — eso puede crecer en mini-proyectos posteriores si hace falta.
+  editar/borrar ese gasto + ver el balance actualizado en cada paso. No se
+  construye una suite exhaustiva de E2E para el MVP — eso puede crecer en
+  mini-proyectos posteriores si hace falta.
 
 ## Estructura del repo
 

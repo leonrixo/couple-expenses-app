@@ -40,10 +40,9 @@ mejora el uso real, pero no bloquea el reemplazo del Excel — y **Could have
 ## Must have (P0)
 
 **1. Registro de cuenta**
-Como usuario nuevo, quiero registrarme con correo y contraseña (o magic link),
-para tener acceso a la app.
-- Acepta correo válido y contraseña con requisitos mínimos razonables (o
-  flujo de magic link, según lo que defina el plan de implementación).
+Como usuario nuevo, quiero registrarme con correo y contraseña, para tener
+acceso a la app.
+- Acepta correo válido y contraseña con requisitos mínimos razonables.
 - Muestra error claro si el correo ya está registrado.
 - Al completar el registro, el usuario queda autenticado y entra a la app.
 
@@ -60,8 +59,9 @@ app y convertirme en su `owner`.
 - Al crear el hogar, el usuario queda registrado como `owner` en
   `household_members`.
 - Se sembran automáticamente las categorías por defecto (ver historia 6).
-- El `default_split_percentage` inicial del owner se define de forma
-  explícita (ver nota de vacío al final de este documento).
+- El `default_split_percentage` del owner se captura como campo explícito en
+  el formulario de creación del hogar (no queda indefinido) — el complemento
+  a 100% se asigna al siguiente miembro que se una.
 
 **4. Generar código de invitación**
 Como owner de un hogar, quiero generar un código de invitación, para que mi
@@ -98,7 +98,24 @@ para llevar el registro real de lo que gastamos.
 - Validación con `zod` en cliente y repetida en servidor dentro de la Server
   Action.
 
-**8. Ver el balance actual**
+**8. Editar o borrar un gasto registrado**
+Como miembro de un hogar, quiero poder editar o borrar un gasto que ya
+registré (o que registró mi pareja), para corregir errores de captura sin
+tener que tocar la base de datos a mano — algo que pasó constantemente en el
+Excel original (typos de nombres, montos mal capturados).
+- Cualquier miembro del hogar puede editar o borrar transacciones de su
+  propio hogar; el registro es colaborativo, no exclusivo de quien lo creó
+  (reforzado por las mismas políticas de RLS de la historia 12).
+- Editar un monto, categoría o tipo de reparto recalcula el balance
+  correctamente al instante (no requiere lógica aparte: el balance se
+  calcula al vuelo desde `transactions`).
+- Borrar un gasto lo remueve del cálculo del balance y del historial
+  (borrado definitivo para el MVP; una papelera/deshacer queda fuera de
+  alcance salvo que se pida explícitamente más adelante).
+- Queda un rastro mínimo de auditoría: `updated_at` y `updated_by` en
+  `transactions`.
+
+**9. Ver el balance actual**
 Como miembro de un hogar, quiero ver el balance actual (quién le debe a
 quién y cuánto), para saber si tengo que transferir dinero o me deben a mí.
 - El balance se calcula al vuelo a partir de `transactions` (sin tabla
@@ -109,54 +126,54 @@ quién y cuánto), para saber si tengo que transferir dinero o me deben a mí.
 - El monto y el sentido (quién debe a quién) son correctos frente a un
   cálculo manual de control.
 
-**9. Validación de porcentajes de reparto**
+**10. Validación de porcentajes de reparto**
 Como miembro de un hogar, quiero que el sistema valide que la suma de
 `default_split_percentage` de todos los miembros sea 100%, para que el
 balance nunca esté mal calculado por un error de configuración.
 - Se valida al invitar/unirse a un segundo miembro y al editar el reparto.
 - Si la suma no da 100, se bloquea la acción con un mensaje de error claro.
 
-**10. Manejo de código de invitación inválido**
+**11. Manejo de código de invitación inválido**
 Como usuario, quiero ver un mensaje de error claro si mi código de
 invitación es inválido, expiró o ya fue usado, para saber qué corregir en vez
 de quedarme sin explicación.
 - Tres mensajes distintos y claros según el caso (inválido / expirado /
   usado), no un error genérico.
 
-**11. Validación de montos**
-Como usuario, quiero que la app valide montos al registrar un gasto (no
-negativos, numéricos), para evitar datos corruptos que rompan el cálculo del
-balance.
+**12. Validación de montos**
+Como usuario, quiero que la app valide montos al registrar o editar un
+gasto (no negativos, numéricos), para evitar datos corruptos que rompan el
+cálculo del balance.
 - Monto negativo, cero, vacío o no numérico: la app rechaza el envío y
   muestra el error sin perder lo demás que el usuario ya había escrito en el
   formulario.
 
-**12. Aislamiento de datos entre hogares (RLS)**
+**13. Aislamiento de datos entre hogares (RLS)**
 Como miembro de un hogar, quiero que ningún usuario de otro hogar pueda ver
 ni modificar mis datos, para que mi información financiera esté aislada y
 privada, aunque hoy solo se pruebe con 1 hogar.
-- Las políticas de RLS en Supabase impiden leer o escribir `transactions`,
-  `categories`, `household_members`, etc. fuera del `household_id` del
-  usuario autenticado, verificado con una prueba real (dos usuarios, dos
-  hogares), no solo revisado en el código.
+- Las políticas de RLS en Supabase impiden leer, escribir, editar o borrar
+  `transactions`, `categories`, `household_members`, etc. fuera del
+  `household_id` del usuario autenticado, verificado con una prueba real
+  (dos usuarios, dos hogares), no solo revisado en el código.
 
 ---
 
 ## Should have (P1)
 
-**13. Editar el porcentaje de reparto regular**
+**14. Editar el porcentaje de reparto regular**
 Como miembro de un hogar, quiero poder editar mi `default_split_percentage`,
 para ajustar el reparto 60/40 si nuestra situación cambia (por ejemplo, un
 cambio de ingresos).
 - Al editar, se revalida que la suma total siga siendo 100.
 
-**14. Historial de gastos**
+**15. Historial de gastos**
 Como miembro de un hogar, quiero ver un listado histórico de los gastos
 registrados, para revisar en qué se ha ido el dinero.
 - Lista ordenada por fecha, muestra monto, concepto, categoría, quién pagó
   y tipo de reparto de cada transacción.
 
-**15. Reparto personalizado (custom)**
+**16. Reparto personalizado (custom)**
 Como miembro de un hogar, quiero registrar un gasto con reparto
 "personalizado" y un porcentaje específico, para casos que no encajan ni en
 60/40 ni en 50/50.
@@ -164,38 +181,40 @@ Como miembro de un hogar, quiero registrar un gasto con reparto
   específicamente el caso `custom` con distintos porcentajes, incluyendo
   decimales.
 
+**17. Recuperar contraseña**
+Como usuario que olvidó su contraseña, quiero poder restablecerla por
+correo, para no quedar bloqueado fuera de la app.
+- Flujo estándar de Supabase Auth (correo con link de restablecimiento).
+- Se agregó como Should have (no Must have) porque con 2 usuarios el riesgo
+  de quedar bloqueado es bajo, pero dejarlo fuera del todo sería un mal
+  precedente de producto.
+
 ---
 
 ## Could have (P2)
 
-**16. Confirmación visual al registrar un gasto**
-Como usuario, quiero recibir una confirmación visual (toast) al registrar un
-gasto exitosamente, para saber que se guardó sin tener que revisar el
-historial.
+**18. Confirmación visual al registrar un gasto**
+Como usuario, quiero recibir una confirmación visual (toast) al registrar,
+editar o borrar un gasto exitosamente, para saber que se guardó sin tener
+que revisar el historial.
 
 ---
 
-## Supuestos y vacíos detectados en la spec
+## Vacíos detectados en la spec y su resolución
 
 Al derivar este backlog de la spec técnica aprobada, quedaron algunos puntos
-que la spec no resuelve de forma explícita. Se documentan aquí para
-transparencia (buena práctica de PM: dejar constancia de supuestos, no
-esconderlos) y deberían confirmarse con el usuario antes o durante el plan de
-implementación:
+que la spec no resolvía de forma explícita. Buena práctica de PM: dejar
+constancia de los supuestos y su resolución, no esconderlos.
 
-- **Editar o borrar un gasto ya registrado no está contemplado en la spec.**
-  No se incluyó como historia de este backlog porque no hay decisión de
-  producto tomada al respecto — vale la pena decidir explícitamente si entra
-  al Mini-proyecto 1 (es un caso de uso común: "me equivoqué al capturar") o
-  se pospone a propósito.
+- **Editar o borrar un gasto ya registrado** — no estaba contemplado en la
+  spec original. **Resuelto 2026-08-27:** el usuario decidió que sí entra al
+  alcance del Mini-proyecto 1 (historia 8, Must have). La spec técnica se
+  actualizó para incluir `updated_at`/`updated_by` en `transactions`.
 - **`default_split_percentage` del owner antes de que se una el segundo
-  miembro:** la spec valida la suma de 100% "al invitar/unirse a un segundo
-  miembro", pero no dice explícitamente qué valor tiene el owner mientras el
-  hogar tiene un solo miembro (¿100% por defecto? ¿sin definir hasta que se
-  una el segundo?). Se asumió, para la historia 3, que debe quedar un valor
-  explícito desde la creación del hogar, ajustable después.
-- **Método de autenticación por defecto:** la spec deja abierto
-  "email/password o magic link" sin indicar cuál es el flujo principal. Se
-  escribió la historia 1 cubriendo ambos como alternativas, pero conviene que
-  el usuario decida cuál es el flujo primario antes del plan de
-  implementación, ya que afecta el diseño de las pantallas de onboarding.
+  miembro** — **Resuelto 2026-08-27:** se captura como campo explícito en el
+  formulario de creación del hogar (historia 3), no queda indefinido.
+- **Método de autenticación por defecto** — la spec dejaba abierto
+  "email/password o magic link". **Resuelto 2026-08-27:** el usuario eligió
+  email + contraseña como método principal (historia 1), con recuperación de
+  contraseña agregada como historia 17 (Should have) para no dejar a nadie
+  bloqueado fuera de la app.
