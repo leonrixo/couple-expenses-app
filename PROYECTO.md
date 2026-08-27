@@ -42,13 +42,19 @@ Detalle completo de cada decisión y el porqué en la spec de Mini-proyecto 1.
 
 ## Estado actual
 
-2026-08-27 — Brainstorming del Mini-proyecto 1 completado y aprobado por el usuario.
-Repo git local creado (2 commits: spec técnica; documentación de PM + ADRs).
-Documentación de PM (`docs/pm/`) y ADRs (`docs/adr/`) generadas por agentes delegados
-(product-manager, architecture-documenter). El agente de PM detectó 4 vacíos en la
-spec al construir el backlog — 2 resueltos directamente (ver Decisiones clave), 2
-pendientes de que el usuario decida (ver Pendientes). Notion: usuario pidió conectarlo
-ya; esperando que cree la integración interna y comparta el token + link de página.
+2026-08-27 — Spec técnica y documentación de PM del Mini-proyecto 1 completas,
+consistentes y commiteadas (4 commits). Las 3 preguntas abiertas que detectó el
+agente de PM al armar el backlog ya están resueltas: login con email+contraseña
+(con recuperación), editar/borrar gastos entra al Mini-proyecto 1, y el
+`default_split_percentage` se fija al crear el hogar. Falta: revisión final del
+usuario y generar el plan de implementación (`writing-plans`).
+
+Notion: token de integración validado (workspace "Gustavo Alfredo Macias's
+Space"), pero sin ninguna página compartida todavía — es una restricción del
+propio Notion, no de esta sesión: la integración no puede ver nada hasta que el
+usuario comparta una página específica con ella desde la UI de Notion. Ese es el
+único paso manual que falta; el resto (crear la estructura del tablero) se hace
+por API en cuanto haya una página compartida.
 
 ## Decisiones clave ya tomadas (continuación — resueltas 2026-08-27 tras el backlog)
 
@@ -58,19 +64,16 @@ ya; esperando que cree la integración interna y comparta el token + link de pá
 - El Mini-proyecto 1 SÍ termina con un despliegue real y accesible por URL (no solo
   local) — es parte de su Definition of Done. El Mini-proyecto 3 es únicamente
   pulido PWA/instalable sobre esa base ya desplegada, no un primer despliegue.
+- Login principal: email + contraseña con recuperación por correo (no magic link).
+- Editar/borrar un gasto ya capturado entra al alcance del Mini-proyecto 1
+  (historia 8 del backlog), con `updated_at`/`updated_by` como rastro de auditoría
+  y borrado definitivo (sin papelera) para el MVP.
 
 ## Pendientes / preguntas abiertas
 
-- **[ABIERTA] Editar/borrar un gasto ya capturado**: no estaba en la spec original.
-  El agente de PM no lo incluyó en el backlog del Mini-proyecto 1 por no haber
-  decisión de producto tomada, pero señala que es un caso de uso obvio (errores de
-  captura). Falta que el usuario decida si entra al alcance del Mini-proyecto 1 o se
-  pospone a propósito a un mini-proyecto posterior.
-- **[ABIERTA] Método de autenticación principal**: la spec deja email/password y
-  magic link como alternativas sin decidir cuál es el flujo primario. Falta fijarlo
-  antes del plan de implementación.
-- **Notion**: esperando token de integración interna + link de página del usuario.
-  No bloquea el resto del Mini-proyecto 1.
+- **Notion**: token guardado en `.env.local` (git-ignored) y validado. Falta que
+  el usuario comparta una página con la integración "Gastos Pareja PM" desde
+  Notion (botón "..." → Connections). No bloquea el resto del Mini-proyecto 1.
 - **Repo remoto**: se creó el repo local únicamente. Falta preguntar si se quiere
   subir a GitHub (recomendable para portafolio) — no se hace sin confirmación
   explícita.
@@ -83,8 +86,8 @@ ya; esperando que cree la integración interna y comparta el token + link de pá
 - [x] Brainstorming y diseño del Mini-proyecto 1
 - [x] Escribir spec del Mini-proyecto 1
 - [x] Documentación de PM (charter, roadmap, backlog, DoD) y ADRs
-- [ ] Usuario resuelve las 2 preguntas abiertas del backlog
+- [x] Resolver las 3 preguntas abiertas del backlog
 - [ ] Plan de implementación (skill `writing-plans`)
 - [ ] Implementación del Mini-proyecto 1 (subagentes)
 - [ ] Reporte de fase del Mini-proyecto 1
-- [ ] Definir acceso a Notion y montar tablero de PM
+- [ ] Compartir una página de Notion con la integración y montar el tablero de PM
