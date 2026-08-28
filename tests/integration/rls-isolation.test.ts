@@ -34,23 +34,35 @@ describe("aislamiento de datos entre hogares (RLS)", () => {
     userAId = await createTestUser(emailA);
     userBId = await createTestUser(emailB);
 
-    const { data: householdA } = await admin.from("households").insert({ name: "Hogar A" }).select().single();
-    const { data: householdB } = await admin.from("households").insert({ name: "Hogar B" }).select().single();
+    const { data: householdA, error: householdAError } = await admin
+      .from("households")
+      .insert({ name: "Hogar A" })
+      .select()
+      .single();
+    if (householdAError) throw householdAError;
+    const { data: householdB, error: householdBError } = await admin
+      .from("households")
+      .insert({ name: "Hogar B" })
+      .select()
+      .single();
+    if (householdBError) throw householdBError;
     householdAId = householdA!.id;
     householdBId = householdB!.id;
 
-    await admin.from("household_members").insert([
+    const { error: membersError } = await admin.from("household_members").insert([
       { household_id: householdAId, user_id: userAId, role: "owner", default_split_percentage: 60 },
       { household_id: householdBId, user_id: userBId, role: "owner", default_split_percentage: 60 },
     ]);
+    if (membersError) throw membersError;
 
-    const { data: catA } = await admin
+    const { data: catA, error: catAError } = await admin
       .from("categories")
       .insert({ household_id: householdAId, name: "Comida", is_default: true })
       .select()
       .single();
+    if (catAError) throw catAError;
 
-    await admin.from("transactions").insert({
+    const { error: txnError } = await admin.from("transactions").insert({
       household_id: householdAId,
       amount: 500,
       concept: "Gasto secreto del hogar A",
@@ -58,13 +70,36 @@ describe("aislamiento de datos entre hogares (RLS)", () => {
       category_id: catA!.id,
       split_type: "regular",
     });
+    if (txnError) throw txnError;
   });
 
   afterAll(async () => {
     const admin = createServiceRoleClient();
-    await admin.from("households").delete().in("id", [householdAId, householdBId]);
-    await admin.auth.admin.deleteUser(userAId);
-    await admin.auth.admin.deleteUser(userBId);
+    const { error: deleteHouseholdsError } = await admin
+      .from("households")
+      .delete()
+      .in("id", [householdAId, householdBId]);
+    if (deleteHouseholdsError) throw deleteHouseholdsError;
+
+    const { error: deleteAError } = await admin.auth.admin.deleteUser(userAId);
+    if (deleteAError) throw deleteAError;
+    const { error: deleteBError } = await admin.auth.admin.deleteUser(userBId);
+    if (deleteBError) throw deleteBError;
+
+    // No basta con que las llamadas de borrado no hayan devuelto error: se
+    // verifica explícitamente que ya no quede nada — si la limpieza falla a
+    // medias, este test debe reportarlo en vez de dar un PASS falso.
+    const { data: remainingHouseholds, error: verifyHouseholdsError } = await admin
+      .from("households")
+      .select("id")
+      .in("id", [householdAId, householdBId]);
+    if (verifyHouseholdsError) throw verifyHouseholdsError;
+    expect(remainingHouseholds).toEqual([]);
+
+    const { data: listData, error: listError } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    if (listError) throw listError;
+    const stillPresent = listData.users.filter((u) => u.email === emailA || u.email === emailB);
+    expect(stillPresent).toEqual([]);
   });
 
   it("el usuario B NO puede leer las transacciones del hogar A", async () => {
@@ -97,6 +132,28 @@ describe("aislamiento de datos entre hogares (RLS)", () => {
       split_type: "regular",
     });
     expect(error).not.toBeNull();
+    expect(error!.code).toBe("42501");
+  });
+
+  it("el usuario B NO puede modificar una transacción del hogar A", async () => {
+    const clientB = await signIn(emailB);
+    await clientB.from("transactions").update({ amount: 1 }).eq("household_id", householdAId);
+    const { data } = await createServiceRoleClient()
+      .from("transactions")
+      .select("amount")
+      .eq("household_id", householdAId)
+      .single();
+    expect(Number(data!.amount)).toBe(500);
+  });
+
+  it("el usuario B NO puede borrar una transacción del hogar A", async () => {
+    const clientB = await signIn(emailB);
+    await clientB.from("transactions").delete().eq("household_id", householdAId);
+    const { count } = await createServiceRoleClient()
+      .from("transactions")
+      .select("*", { count: "exact", head: true })
+      .eq("household_id", householdAId);
+    expect(count).toBe(1);
   });
 
   it("el usuario A SÍ puede leer sus propias transacciones", async () => {

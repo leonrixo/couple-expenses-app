@@ -12,7 +12,9 @@ create table transactions (
   custom_split_percentage numeric(5,2) check (custom_split_percentage is null or (custom_split_percentage >= 0 and custom_split_percentage <= 100)),
   created_at timestamptz not null default now(),
   updated_at timestamptz,
-  updated_by uuid references profiles(id)
+  updated_by uuid references profiles(id),
+  check (split_type <> 'custom' or custom_split_percentage is not null),
+  check (split_type = 'custom' or custom_split_percentage is null)
 );
 
 alter table transactions enable row level security;
