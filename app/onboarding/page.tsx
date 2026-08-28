@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { createHousehold } from "./create-household-actions";
+import { joinHousehold } from "./join-household-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function OnboardingPage() {
   const [state, formAction, pending] = useActionState(createHousehold, { error: "" });
+  const [joinState, joinFormAction, joinPending] = useActionState(joinHousehold, { error: "" });
 
   return (
     <div className="mx-auto mt-16 max-w-md space-y-6 px-4">
@@ -41,7 +43,13 @@ export default function OnboardingPage() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">Pide el código de invitación a tu pareja.</p>
-          {/* Formulario de unirse: Task 9 */}
+          <form action={joinFormAction} className="mt-3 flex gap-2">
+            <Input name="code" placeholder="Código de invitación" required />
+            <Button type="submit" disabled={joinPending}>
+              {joinPending ? "Uniendo..." : "Unirme"}
+            </Button>
+          </form>
+          {joinState.error && <p className="mt-2 text-sm text-red-600">{joinState.error}</p>}
         </CardContent>
       </Card>
     </div>
