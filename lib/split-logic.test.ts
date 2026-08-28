@@ -28,6 +28,11 @@ describe("percentageFor", () => {
     const tx: SplitTransaction = { amount: 100, paidBy: "gustavo", splitType: "regular" };
     expect(() => percentageFor("desconocido", tx, members)).toThrow();
   });
+
+  it("lanza error si el usuario no es miembro del hogar incluso en reparto big", () => {
+    const tx: SplitTransaction = { amount: 100, paidBy: "gustavo", splitType: "big" };
+    expect(() => percentageFor("desconocido", tx, members)).toThrow();
+  });
 });
 
 describe("amountOwedBy", () => {
@@ -35,6 +40,13 @@ describe("amountOwedBy", () => {
     const tx: SplitTransaction = { amount: 99.99, paidBy: "gustavo", splitType: "regular" };
     expect(amountOwedBy("gustavo", tx, members)).toBeCloseTo(59.99, 2);
     expect(amountOwedBy("esperanza", tx, members)).toBeCloseTo(40.0, 2);
+  });
+
+  it("con montos odd-cent en reparto big, los dos miembros siempre suman exactamente el monto total", () => {
+    const tx: SplitTransaction = { amount: 19.99, paidBy: "gustavo", splitType: "big" };
+    const gustavoOwed = amountOwedBy("gustavo", tx, members);
+    const esperanzaOwed = amountOwedBy("esperanza", tx, members);
+    expect(gustavoOwed + esperanzaOwed).toBeCloseTo(19.99, 2);
   });
 });
 

@@ -26,6 +26,9 @@ export function percentageFor(
   tx: SplitTransaction,
   members: HouseholdMember[]
 ): number {
+  const member = members.find((m) => m.userId === userId);
+  if (!member) throw new Error(`El usuario ${userId} no es miembro de este hogar`);
+
   if (tx.splitType === "big") return 50;
 
   if (tx.splitType === "custom") {
@@ -35,8 +38,6 @@ export function percentageFor(
     return userId === owner.userId ? ownerPct : 100 - ownerPct;
   }
 
-  const member = members.find((m) => m.userId === userId);
-  if (!member) throw new Error(`El usuario ${userId} no es miembro de este hogar`);
   return member.defaultSplitPercentage;
 }
 
@@ -45,8 +46,28 @@ export function amountOwedBy(
   tx: SplitTransaction,
   members: HouseholdMember[]
 ): number {
-  const pct = percentageFor(userId, tx, members);
-  return round2((tx.amount * pct) / 100);
+  const member = members.find((m) => m.userId === userId);
+  if (!member) throw new Error(`El usuario ${userId} no es miembro de este hogar`);
+
+  if (members.length !== 2) {
+    // Fuera del alcance probado (hogares de más de 2 miembros); redondeo
+    // independiente como antes — no garantiza suma exacta con N>2.
+    const pct = percentageFor(userId, tx, members);
+    return round2((tx.amount * pct) / 100);
+  }
+
+  // Con exactamente 2 miembros: elegimos un miembro "primario" de forma
+  // determinista (alfabético por userId, sin importar el orden de members[]
+  // ni en qué orden se llama esta función para cada miembro) para que las
+  // dos partes SIEMPRE sumen exactamente tx.amount — nunca +/- 1 centavo
+  // por redondeo independiente de cada mitad.
+  const [primary, secondary] = [...members].sort((a, b) => a.userId.localeCompare(b.userId));
+
+  const primaryPct = percentageFor(primary.userId, tx, members);
+  const primaryOwed = round2((tx.amount * primaryPct) / 100);
+
+  if (userId === primary.userId) return primaryOwed;
+  return round2(tx.amount - primaryOwed);
 }
 
 export function calculateBalance(
