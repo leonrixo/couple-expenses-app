@@ -49,6 +49,7 @@ create function public.is_household_member(hid uuid)
 returns boolean
 language sql
 security definer
+set search_path = public
 stable
 as $$
   select exists (
