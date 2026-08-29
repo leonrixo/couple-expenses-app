@@ -12,6 +12,10 @@ node_modules/
 .DS_Store
 Thumbs.db
 
+# Artefactos generados de pruebas/CLI
+test-results/
+supabase/.temp/
+
 # Worktrees aislados para subagent-driven-development
 .worktrees/
 .superpowers/
