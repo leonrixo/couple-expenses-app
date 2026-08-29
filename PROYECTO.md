@@ -52,19 +52,39 @@ primera vez en el proyecto que el flujo completo (registro real vía Resend,
 confirmación, login, crear hogar, agregar pareja, registrar un gasto,
 editarlo) pasa de principio a fin por la UI real. Commit `24080df`.
 
-**Estado al 2026-08-29 (sesión 2, cierre): Mini-proyecto 1 en 14/15 tasks
-completos, sin ningún bloqueo activo.** Solo falta Task 15 (deploy a Vercel)
-para cerrar el mini-proyecto y tener la app accesible por URL real — lo
-único que falta para "ir live".
+**✅ Task 15 (deploy a Vercel): hecho (2026-08-29, sesión 3).** App real en
+producción: **https://gastos-pareja-two.vercel.app**. `mvp-nucleo` se
+fusionó a `master` (tests y build verificados sobre el resultado fusionado,
+46/46, limpio), repo de GitHub conectado a Vercel para deploy automático en
+cada push a `master`, variables de entorno configuradas, y la URL de
+redirect de Supabase Auth apuntando a producción. Detalle completo, incluido
+el estado real del checklist de Definition of Done (qué está verificado con
+evidencia y qué sigue pendiente), en
+[`docs/fases/2026-mini-proyecto-1-reporte.md`](docs/fases/2026-mini-proyecto-1-reporte.md).
+
+**Estado al 2026-08-29 (sesión 3, cierre): Mini-proyecto 1 desplegado, 15/15
+tasks de implementación completas — pero el cierre FORMAL del mini-proyecto
+sigue pendiente** de la validación con los usuarios reales (Gustavo y
+Esperanza probando cada uno en su celular, balance verificado contra cálculo
+manual) que exige el propio Definition of Done. No se marca como "cerrado"
+sin esa validación — ver el reporte de fase para el detalle exacto de qué
+falta.
 
 **Pendiente inmediato al retomar (en este orden):**
-1. **Task 15: desplegar a Vercel** — es lo único que falta para que
-   Gustavo y Esperanza puedan usar la app de verdad. Incluye verificación
-   final de la Definition of Done y el reporte de fase que cierra el
-   Mini-proyecto 1.
-2. Responder/cerrar el ticket de soporte a Supabase con la aclaración de
+1. **Validación con usuarios reales** — Gustavo y Esperanza prueban la app
+   en sus propios celulares (no devtools), cada uno de forma independiente,
+   y confirman que el balance coincide con lo que esperarían de un cálculo
+   manual (al menos 3 casos). Sin esto, el mini-proyecto no se puede dar
+   por cerrado según el propio DoD del proyecto.
+2. **Gap de cobertura real encontrado al revisar el DoD:** el flujo de
+   invitación por código (crear → generar código → unirse) nunca se probó
+   por UI real ni sus 3 casos de error (código inválido, expirado, ya
+   usado) — el E2E existente agrega a la pareja directo por service-role
+   para esquivar esa parte. Candidato a un test Playwright nuevo antes de
+   la sesión de validación con los usuarios.
+3. Responder/cerrar el ticket de soporte a Supabase con la aclaración de
    que la causa fue propia, no de su plataforma (cortesía, no bloqueante).
-3. M2, M3, M4 de la auditoría — mejoras de robustez, sin apuro.
+4. M2, M3, M4 de la auditoría — mejoras de robustez, sin apuro.
 
 ---
 
@@ -80,7 +100,7 @@ fase.
 | # | Mini-proyecto | Estado |
 |---|---|---|
 | 0 | Fundación (carpeta, repo, docs, tablero de Notion como PM) | Prácticamente completa — repo, docs de PM, ADRs y tablero de Notion en vivo; falta solo decidir si se sube el repo a GitHub |
-| 1 | Núcleo de la app (auth, hogares, gastos, reparto, balance) | **14 de 15 tasks completos** — solo falta Task 15 (deploy). Ver el "Resumen rápido" arriba para el estado más reciente |
+| 1 | Núcleo de la app (auth, hogares, gastos, reparto, balance) | **Desplegada en producción, 15/15 tasks de implementación.** Cierre formal pendiente de validación con los usuarios reales — ver el "Resumen rápido" arriba |
 | 2 | Presupuestos y Dashboard | No iniciado |
 | 3 | Deploy y pulido móvil (PWA) | No iniciado |
 | 4 (futuro) | Notion API / multi-hogar real | No iniciado, sin fecha |
@@ -184,6 +204,7 @@ git — Notion es la vista de seguimiento para el usuario como PM.
 - [x] Resolver las 3 preguntas abiertas del backlog
 - [x] Plan de implementación (skill `writing-plans`) — [docs/superpowers/plans/2026-08-27-nucleo-app-mvp-plan.md](docs/superpowers/plans/2026-08-27-nucleo-app-mvp-plan.md), 15 tasks
 - [x] El usuario creó el proyecto en supabase.com antes del Task 2 (URL + anon key + service role key + DATABASE_URL, todo en `.env.local` git-ignored)
-- [ ] Implementación del Mini-proyecto 1 (subagentes) — **11/15 tasks, en curso**, ver "Estado actual"
-- [ ] Reporte de fase del Mini-proyecto 1
+- [x] Implementación del Mini-proyecto 1 (subagentes) — 15/15 tasks, desplegado en producción
+- [x] Reporte de fase del Mini-proyecto 1 — [docs/fases/2026-mini-proyecto-1-reporte.md](docs/fases/2026-mini-proyecto-1-reporte.md)
+- [ ] Validación con usuarios reales (Gustavo + Esperanza) — cierra formalmente el Mini-proyecto 1
 - [x] Compartir una página de Notion con la integración y montar el tablero de PM

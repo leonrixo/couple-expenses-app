@@ -19,3 +19,5 @@ supabase/.temp/
 # Worktrees aislados para subagent-driven-development
 .worktrees/
 .superpowers/
+.vercel
+.env*
