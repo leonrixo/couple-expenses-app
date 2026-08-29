@@ -26,11 +26,32 @@ el formato de API keys que esa key legacy verifica). Todo lo verificable
 desde este lado —el JWT, la función `auth.uid()`, la política RLS, los
 GRANTs de la tabla— está confirmado correcto.
 
-**Siguiente paso: abrir un ticket a soporte de Supabase** con la evidencia ya
-recopilada (ver el ledger, sección "Bloqueo #1 (RLS/JWT): diagnóstico
-exhaustivo en vivo con el usuario") — esto ya no es accionable desde el
-dashboard sin ayuda de Supabase. **Esto sigue siendo más urgente que
-terminar Task 14 o que cualquier otra cosa en este proyecto.**
+**Ticket enviado a soporte de Supabase (2026-08-29)** — categoría "APIs and
+client libraries", servicios "Authentication"+"Database", librería
+"JavaScript", severidad alta. Sin ETA de respuesta. Mientras se espera,
+sesión trabajando en paralelo en dos frentes que NO dependen de este
+bloqueo (ver "Trabajo en paralelo mientras se espera a Supabase" abajo).
+**Esto sigue siendo más urgente que terminar Task 14 o que cualquier otra
+cosa en este proyecto** — en cuanto Supabase responda o se confirme un
+workaround viable, retomar esto primero.
+
+### Trabajo en paralelo mientras se espera a Supabase (2026-08-29)
+
+Delegado a subagentes en background (rol de PM: yo delego, reviso y
+comiteo/pusheo el resultado, no confiar en el reporte del agente sin
+revisar el diff real):
+1. **Investigación de workarounds** — agente de research buscando
+   reportes conocidos de este bug en GitHub/foros/status page de Supabase,
+   y evaluando si vale la pena un workaround de aplicación (bypass RLS con
+   service-role + validación manual en Server Action) como plan B temporal.
+2. **Fix de I1** (recuperar contraseña roto) — agente `nextjs-expert`
+   implementando la ruta de intercambio `app/auth/confirm/route.ts` que
+   falta, verificando primero si el proyecto real usa flujo PKCE u OTP
+   antes de escribir el código (no asumir).
+
+Pendiente para después: I2 (throttling de invitación) e I3 (enumeración de
+correo en signup) — se despachan en cuanto el fix de I1 esté revisado, para
+no correr dos agentes en paralelo sobre el mismo worktree.
 
 **Estado al 2026-08-29 (sesión 2):** Mini-proyecto 1 (núcleo) en 13/15 tasks
 completos. Task 14 (E2E Playwright) sigue bloqueada, ya no por el correo (eso
