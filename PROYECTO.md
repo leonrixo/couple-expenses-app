@@ -1,14 +1,29 @@
 # Gastos en pareja — app web
 
-**TL;DR:** App web para que Gustavo (Rizo) y Esperanza registren gastos del hogar
-desde el celular o la PC, con reparto automático (60/40 en gastos regulares, 50/50 en
-compras grandes/súbitas) y un balance vivo de quién le debe a quién. Reemplaza el
-Excel manual que se analizó el 2026-08-27 (ver
-`Documents\2 CASA Y TRAMITES\Informe financiero - gastos.xlsx`). Es también una pieza
-de portafolio para el reposicionamiento de Gustavo hacia Project Manager (ver
-[conseguir-jale](../conseguir-jale/PROYECTO.md)), por eso se documenta como un caso de
-estudio de PM: cada mini-proyecto tiene su propio ciclo diseño → spec → plan →
-implementación → reporte de fase.
+## Resumen rápido (TL;DR)
+
+**Qué es:** App web (Next.js + Supabase) para que Gustavo (Rizo) y Esperanza
+registren gastos del hogar con reparto automático (60/40 regular, 50/50 en
+compras grandes) y balance vivo de quién le debe a quién. Reemplaza el Excel
+manual analizado el 2026-08-27. También es caso de estudio de PM para el
+portafolio de Gustavo (ver [conseguir-jale](../conseguir-jale/PROYECTO.md)).
+
+**Estado al 2026-08-29:** Mini-proyecto 1 (núcleo) en 14/15 tasks — Task 14
+(E2E Playwright) y una auditoría de seguridad corriendo en subagentes en
+segundo plano al momento de escribir esto (ver "Estado actual" abajo para el
+detalle exacto). Repo a punto de subirse a GitHub como privado bajo el nombre
+`couple-expenses-app`.
+
+**Pendiente inmediato al retomar (en este orden):**
+1. Confirmar que Task 14 (E2E) y la auditoría de seguridad terminaron limpio —
+   revisar `.worktrees/mvp-nucleo/.superpowers/sdd/2026-08-27-nucleo-app-mvp-plan/progress.md`
+   y `docs/seguridad/2026-08-29-auditoria-seguridad.md`.
+2. Si el push a GitHub no se completó en esta sesión, completarlo (repo
+   privado `couple-expenses-app`).
+3. Task 13 (editar % de reparto) — confirmar que quedó completo (ver ledger).
+4. Task 15: despliegue a Vercel + reporte de fase que cierra el Mini-proyecto 1.
+
+---
 
 ## Objetivo
 
@@ -22,7 +37,7 @@ fase.
 | # | Mini-proyecto | Estado |
 |---|---|---|
 | 0 | Fundación (carpeta, repo, docs, tablero de Notion como PM) | Prácticamente completa — repo, docs de PM, ADRs y tablero de Notion en vivo; falta solo decidir si se sube el repo a GitHub |
-| 1 | Núcleo de la app (auth, hogares, gastos, reparto, balance) | **11 de 15 tasks completos** (implementación vía subagentes en `.worktrees/mvp-nucleo`) — Task 12 a medias, ver "Estado actual" abajo |
+| 1 | Núcleo de la app (auth, hogares, gastos, reparto, balance) | **12 de 15 tasks completos** (implementación vía subagentes en `.worktrees/mvp-nucleo`) — ver "Estado actual" abajo |
 | 2 | Presupuestos y Dashboard | No iniciado |
 | 3 | Deploy y pulido móvil (PWA) | No iniciado |
 | 4 (futuro) | Notion API / multi-hogar real | No iniciado, sin fecha |
@@ -44,27 +59,47 @@ Detalle completo de cada decisión y el porqué en la spec de Mini-proyecto 1.
 
 2026-08-28 — Implementación del Mini-proyecto 1 en curso vía Subagent-Driven
 Development, en el worktree `.worktrees/mvp-nucleo` (branch `mvp-nucleo`), **no**
-en `master`. **11 de 15 tasks completos y revisados limpio** (commits
-`2aa0492`..`866bd3c`): scaffolding, clientes de Supabase, todo el esquema de
+en `master`. **12 de 15 tasks completos y revisados limpio** (commits
+`2aa0492`..`20b4123`): scaffolding, clientes de Supabase, todo el esquema de
 base de datos con RLS (incluida la prueba de aislamiento entre dos hogares
 reales — historia de más riesgo del proyecto), el módulo de cálculo de reparto
 y balance (con un bug de redondeo real encontrado y corregido en revisión),
-autenticación completa, creación de hogar, invitaciones, y registrar/editar/
-borrar un gasto.
+autenticación completa, creación de hogar, invitaciones, registrar/editar/
+borrar un gasto, y la página principal con balance en vivo e historial de
+gastos (Task 12, retomada esta sesión desde trabajo sin commitear de la sesión
+anterior — verificado contra el esquema real antes de comitear).
 
-**Task 12 (página principal con balance en vivo) quedó a medias** — sesión
-pausada a propósito por el usuario (contexto de la conversación muy grande).
-Hay archivos sin commitear en el worktree (`app/page.tsx` modificado,
-`app/balance.test.ts`/`components/balance-card.tsx`/`components/transactions-table.tsx`
-sin trackear) que no se descartaron. El ledger completo con el detalle exacto
-de cómo retomarlo está en
-`.worktrees/mvp-nucleo/.superpowers/sdd/2026-08-27-nucleo-app-mvp-plan/progress.md`
-— léelo primero en la próxima sesión, tiene instrucciones precisas de si
-conviene retomar ese trabajo sin commitear o descartarlo y redespachar Task 12
-limpio.
+De paso, esta sesión también investigó una falla intermitente en la prueba de
+aislamiento entre hogares (RLS) — se confirmó que fue un arranque en frío del
+proyecto gratuito de Supabase, no una regresión real; no requirió cambios de
+código.
 
-Quedan las Tasks 12 (terminar) a 15 (editar % de reparto, prueba E2E con
-Playwright, y despliegue a Vercel + verificación final de Definition of Done).
+**2026-08-29 — continuación de la misma sesión:** Task 13 (editar % de
+reparto regular del hogar) completa y revisada limpio (commit `e5e8069`).
+Task 14 (prueba E2E con Playwright) se topó con un bloqueo real de
+infraestructura: el proyecto de Supabase tenía agotada su cuota de envío de
+correos (servicio de email integrado, pensado solo para desarrollo) — bloqueaba
+`signUp()` de forma atómica. Se resolvió configurando SMTP propio vía Resend
+(cuenta gratuita, verificada en vivo antes de configurarla en Supabase), lo
+cual además resuelve el mismo límite para producción real (recuperar
+contraseña, confirmar cuenta de Esperanza). Con eso resuelto, Task 14 se
+re-despachó para terminar con un PASS genuino — **su resultado final está
+pendiente de confirmar** al momento de escribir esto (revisar el ledger).
+
+Durante el intento de Task 14 se descubrió (con evidencia empírica, no solo
+lectura de código) un bug real de UX: guardar o editar un gasto no daba
+ninguna confirmación ni regresaba a la pantalla principal. Se decidió
+arreglarlo de inmediato (fuera del plan original de 15 tasks) — commit
+`b5d1d81`, revisado limpio.
+
+También se despachó un `security-auditor` (solo lectura, sin editar código)
+para revisar RLS, Server Actions, autenticación y manejo de secretos antes de
+subir el repo a GitHub — reporte en `docs/seguridad/2026-08-29-auditoria-seguridad.md`
+(revisar su veredicto antes de asumir que es seguro hacer el repo público).
+
+Quedan: confirmar Task 14, revisar la auditoría de seguridad, subir el repo a
+GitHub (privado, nombre `couple-expenses-app`), y Task 15 (despliegue a
+Vercel + verificación final de Definition of Done).
 
 **Notion: tablero de PM ya montado y en vivo.** Página raíz:
 https://app.notion.com/p/Gastos-en-pareja-PM-3c9534bc10b480cf8cf9e64c5917b7e1 —
@@ -90,9 +125,10 @@ git — Notion es la vista de seguimiento para el usuario como PM.
 
 ## Pendientes / preguntas abiertas
 
-- **Repo remoto**: se creó el repo local únicamente. Falta preguntar si se quiere
-  subir a GitHub (recomendable para portafolio) — no se hace sin confirmación
-  explícita.
+- **Repo remoto**: el usuario confirmó explícitamente (2026-08-29) subirlo a
+  GitHub como repo **privado** con el nombre `couple-expenses-app` — se hace
+  privado primero (no público) hasta confirmar que la auditoría de seguridad
+  en curso no encontró nada peligroso de publicar. Ver "Estado actual".
 - **Continuidad de sesión**: no hay forma de leer el % exacto de uso de la ventana de
   5 horas de la cuenta del usuario; la mitigación es mantener este archivo y la spec
   actualizados para poder retomar sin perder contexto.
