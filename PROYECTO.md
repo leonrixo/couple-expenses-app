@@ -23,25 +23,30 @@ Task 14 o que cualquier otra cosa en este proyecto** — ver el ledger (`.worktr
 sección "Task 14 resume (2026-08-29)") para la evidencia completa y qué
 revisar en el dashboard (Settings → API Keys / JWT Signing Keys).
 
-**Estado al 2026-08-29:** Mini-proyecto 1 (núcleo) en 13/15 tasks completos.
-Task 14 (E2E Playwright) sigue bloqueada, ya no por el correo (eso se
-resolvió con Resend) sino por el bug crítico de arriba. **Auditoría de
-seguridad completa**: riesgo medio-alto, un hallazgo Crítico adicional (C1 —
-políticas de UPDATE en `household_members`/`transactions` sin `WITH CHECK`,
-permite que un miembro reasigne el rol o la membresía de su pareja sin su
-consentimiento) más 3 Importantes y 4 Menores, ver
-`docs/seguridad/2026-08-29-auditoria-seguridad.md` para la remediación exacta
-de cada uno. Repo ya subido a GitHub como privado: `couple-expenses-app`
+**Estado al 2026-08-29 (sesión 2):** Mini-proyecto 1 (núcleo) en 13/15 tasks
+completos. Task 14 (E2E Playwright) sigue bloqueada, ya no por el correo (eso
+se resolvió con Resend) sino por el bug crítico de RLS/JWT de abajo.
+**Auditoría de seguridad completa**, hallazgo **Crítico C1 ya cerrado**
+(commit `cb7a7cb`, pusheado): políticas de UPDATE en
+`household_members`/`transactions` ahora tienen `WITH CHECK` + triggers de
+inmutabilidad (`household_id`/`user_id`/`role`), verificado en vivo con 4
+tests nuevos de ataque real + 42/42 suite completa + build limpio. Quedan 3
+Importantes y 4 Menores del reporte de auditoría, ver
+`docs/seguridad/2026-08-29-auditoria-seguridad.md`. Repo ya subido a GitHub
+como privado: `couple-expenses-app`
 (https://github.com/leonrixo/couple-expenses-app).
 
+**🚨 Sigue sin resolverse el bloqueo crítico de RLS/JWT de arriba** — es lo
+único que falta para que Task 14 avance y para que la app sirva para alguien
+real. Requiere acción del usuario en el dashboard, ver más abajo.
+
 **Pendiente inmediato al retomar (en este orden):**
-1. **Resolver el bloqueo crítico de RLS/JWT** — reiniciar el proyecto NO lo
-   arregló (ya probado); siguiente paso es revisar Project Settings → API →
-   JWT Keys/Signing Keys en el dashboard de Supabase. Sin esto, la app no
-   sirve para nadie en producción.
-2. **Arreglar el hallazgo Crítico C1 de la auditoría** (políticas RLS de
-   UPDATE sin `WITH CHECK`) — fix de código/migración, no depende del punto 1,
-   se puede hacer en paralelo o antes. Remediación exacta en el reporte.
+1. **Resolver el bloqueo crítico de RLS/JWT** (el de arriba) — reiniciar el
+   proyecto NO lo arregló (ya probado); siguiente paso es revisar Project
+   Settings → API → JWT Keys/Signing Keys en el dashboard de Supabase. Sin
+   esto, la app no sirve para nadie en producción. **Solo el usuario puede
+   hacer este paso** (requiere el dashboard de Supabase).
+2. ~~Arreglar el hallazgo Crítico C1~~ — **hecho** (commit `cb7a7cb`).
 3. Los hallazgos Importantes de la auditoría (I1 recuperar contraseña, I2
    throttling de invitación, I3 enumeración de correo).
 4. Retomar y terminar Task 14 (E2E) una vez resuelto el punto 1.
