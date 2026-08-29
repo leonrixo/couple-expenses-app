@@ -163,3 +163,131 @@ describe("aislamiento de datos entre hogares (RLS)", () => {
     expect(data![0].concept).toBe("Gasto secreto del hogar A");
   });
 });
+
+describe("escalada de privilegios entre miembros del mismo hogar (C1)", () => {
+  let ownerId: string, memberId: string;
+  let householdId: string;
+  const ownerEmail = `rls-c1-owner-${Date.now()}@example.com`;
+  const memberEmail = `rls-c1-member-${Date.now()}@example.com`;
+
+  beforeAll(async () => {
+    const admin = createServiceRoleClient();
+    ownerId = await createTestUser(ownerEmail);
+    memberId = await createTestUser(memberEmail);
+
+    const { data: household, error: householdError } = await admin
+      .from("households")
+      .insert({ name: "Hogar compartido C1" })
+      .select()
+      .single();
+    if (householdError) throw householdError;
+    householdId = household!.id;
+
+    const { error: membersError } = await admin.from("household_members").insert([
+      { household_id: householdId, user_id: ownerId, role: "owner", default_split_percentage: 60 },
+      { household_id: householdId, user_id: memberId, role: "member", default_split_percentage: 40 },
+    ]);
+    if (membersError) throw membersError;
+  });
+
+  afterAll(async () => {
+    const admin = createServiceRoleClient();
+    const { error: deleteHouseholdError } = await admin.from("households").delete().eq("id", householdId);
+    if (deleteHouseholdError) throw deleteHouseholdError;
+
+    const { error: deleteOwnerError } = await admin.auth.admin.deleteUser(ownerId);
+    if (deleteOwnerError) throw deleteOwnerError;
+    const { error: deleteMemberError } = await admin.auth.admin.deleteUser(memberId);
+    if (deleteMemberError) throw deleteMemberError;
+
+    const { data: listData, error: listError } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    if (listError) throw listError;
+    const stillPresent = listData.users.filter((u) => u.email === ownerEmail || u.email === memberEmail);
+    expect(stillPresent).toEqual([]);
+  });
+
+  it("un miembro NO puede modificar la fila de household_members de su pareja", async () => {
+    // La política de UPDATE filtra por user_id = auth.uid() vía USING: la
+    // fila de la pareja queda invisible para este UPDATE, así que Postgres
+    // simplemente afecta 0 filas sin lanzar error (no hay fila que viole
+    // WITH CHECK porque no hay fila que actualizar) — el read-back de abajo
+    // es la prueba real de que nada cambió.
+    const clientMember = await signIn(memberEmail);
+    await clientMember
+      .from("household_members")
+      .update({ role: "member", default_split_percentage: 0 })
+      .eq("household_id", householdId)
+      .eq("user_id", ownerId);
+
+    const { data } = await createServiceRoleClient()
+      .from("household_members")
+      .select("role, default_split_percentage")
+      .eq("household_id", householdId)
+      .eq("user_id", ownerId)
+      .single();
+    expect(data!.role).toBe("owner");
+    expect(Number(data!.default_split_percentage)).toBe(60);
+  });
+
+  it("un miembro NO puede auto-promoverse a owner en su propia fila", async () => {
+    const clientMember = await signIn(memberEmail);
+    await clientMember
+      .from("household_members")
+      .update({ role: "owner" })
+      .eq("household_id", householdId)
+      .eq("user_id", memberId);
+
+    const { data } = await createServiceRoleClient()
+      .from("household_members")
+      .select("role")
+      .eq("household_id", householdId)
+      .eq("user_id", memberId)
+      .single();
+    expect(data!.role).toBe("member");
+  });
+
+  it("un miembro SÍ puede editar su propio default_split_percentage", async () => {
+    const clientMember = await signIn(memberEmail);
+    const { error } = await clientMember
+      .from("household_members")
+      .update({ default_split_percentage: 45 })
+      .eq("household_id", householdId)
+      .eq("user_id", memberId);
+    expect(error).toBeNull();
+
+    const { data } = await createServiceRoleClient()
+      .from("household_members")
+      .select("default_split_percentage")
+      .eq("household_id", householdId)
+      .eq("user_id", memberId)
+      .single();
+    expect(Number(data!.default_split_percentage)).toBe(45);
+  });
+
+  it("un miembro NO puede reasignar su propia fila a otro hogar (household_id inmutable)", async () => {
+    const admin = createServiceRoleClient();
+    const { data: otherHousehold, error: otherHouseholdError } = await admin
+      .from("households")
+      .insert({ name: "Hogar ajeno C1" })
+      .select()
+      .single();
+    if (otherHouseholdError) throw otherHouseholdError;
+
+    const clientMember = await signIn(memberEmail);
+    const { error } = await clientMember
+      .from("household_members")
+      .update({ household_id: otherHousehold!.id })
+      .eq("household_id", householdId)
+      .eq("user_id", memberId);
+    expect(error).not.toBeNull();
+
+    const { data } = await admin
+      .from("household_members")
+      .select("household_id")
+      .eq("user_id", memberId)
+      .single();
+    expect(data!.household_id).toBe(householdId);
+
+    await admin.from("households").delete().eq("id", otherHousehold!.id);
+  });
+});
