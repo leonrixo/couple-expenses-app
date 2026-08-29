@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createTransactionSchema } from "@/lib/validation/transaction";
 
@@ -34,7 +35,7 @@ export async function createTransaction(householdId: string, prevState: { error:
   }
 
   revalidatePath("/");
-  return { error: null, success: true };
+  redirect("/");
 }
 
 export async function updateTransaction(
@@ -78,7 +79,7 @@ export async function updateTransaction(
   }
 
   revalidatePath("/");
-  return { error: null, success: true };
+  redirect("/");
 }
 
 export async function deleteTransaction(transactionId: string) {
