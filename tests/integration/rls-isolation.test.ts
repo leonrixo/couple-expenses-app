@@ -291,3 +291,60 @@ describe("escalada de privilegios entre miembros del mismo hogar (C1)", () => {
     await admin.from("households").delete().eq("id", otherHousehold!.id);
   });
 });
+
+describe("onboarding real de punta a punta con sesión anon (no service-role)", () => {
+  // Este escenario específico -- un usuario recién autenticado creando SU
+  // PRIMER hogar con el cliente normal de la app (sesión anon, no
+  // service-role) -- nunca estuvo cubierto por ningún test de este proyecto
+  // hasta ahora: la prueba de aislamiento de arriba siembra los hogares vía
+  // service-role, y las verificaciones "en vivo" de las Tasks 8/9 también
+  // usaron service-role sin que se detectara en su momento (ver el ledger,
+  // "Task 8: Second concern"). Fue exactamente la ausencia de este caso la
+  // que dejó pasar sin detectar, desde la Task 8, un bug real en
+  // create-household-actions.ts: pedir la fila recién insertada de vuelta
+  // (.select()) requiere pasar la política de SELECT de households
+  // (is_household_member), y el usuario todavía no es miembro en ese
+  // instante -- Postgres rechaza el INSERT completo con el mismo error que
+  // una violación real de RLS, aunque el WITH CHECK del INSERT en sí nunca
+  // falló. El fix (generar el id en el cliente, sin pedir RETURNING) se
+  // verifica aquí reproduciendo el flujo real de la Server Action paso a
+  // paso con una sesión anon real.
+  it("un usuario recién autenticado puede crear su hogar, agregarse como miembro y sembrar categorías", async () => {
+    const email = `onboarding-e2e-${Date.now()}@example.com`;
+    const userId = await createTestUser(email);
+    const client = await signIn(email);
+    const householdId = crypto.randomUUID();
+
+    try {
+      const { error: householdError } = await client
+        .from("households")
+        .insert({ id: householdId, name: "Onboarding real" });
+      expect(householdError).toBeNull();
+
+      const { error: memberError } = await client.from("household_members").insert({
+        household_id: householdId,
+        user_id: userId,
+        role: "owner",
+        default_split_percentage: 60,
+      });
+      expect(memberError).toBeNull();
+
+      const { error: categoriesError } = await client
+        .from("categories")
+        .insert([{ household_id: householdId, name: "Comida", is_default: true }]);
+      expect(categoriesError).toBeNull();
+
+      const { data: readBack, error: readError } = await client
+        .from("households")
+        .select("*")
+        .eq("id", householdId)
+        .single();
+      expect(readError).toBeNull();
+      expect(readBack!.name).toBe("Onboarding real");
+    } finally {
+      const admin = createServiceRoleClient();
+      await admin.from("households").delete().eq("id", householdId);
+      await admin.auth.admin.deleteUser(userId);
+    }
+  });
+});
