@@ -40,27 +40,31 @@ rejections") sigue siendo real pero no era la causa de este caso.
   cerrados, commit `06e2f6e`.
 - **Bloqueo crítico RLS/JWT en INSERT de households** — cerrado, commit
   `d6a1af6` (ver arriba).
+- **M1** (correo real hardcodeado en el test E2E) — cerrado, commit `24080df`.
 
-Quedan solo los hallazgos Menores (M1-M4) de la auditoría, ninguno
-bloqueante. Ver `docs/seguridad/2026-08-29-auditoria-seguridad.md`.
-Repo privado en GitHub: `couple-expenses-app`
-(https://github.com/leonrixo/couple-expenses-app), rama `mvp-nucleo` al
-día con todo lo anterior.
+Quedan M2, M3, M4 (mejoras de robustez, sin apuro, ninguno bloqueante). Ver
+`docs/seguridad/2026-08-29-auditoria-seguridad.md`. Repo privado en GitHub:
+`couple-expenses-app` (https://github.com/leonrixo/couple-expenses-app),
+rama `mvp-nucleo` al día con todo lo anterior.
 
-**Estado al 2026-08-29 (sesión 2, cierre):** Mini-proyecto 1 (núcleo) en
-13/15 tasks completos, **sin ningún bloqueo activo**. Task 14 (E2E
-Playwright) ya puede retomarse — el bug que la bloqueaba está resuelto y
-verificado.
+**✅ Task 14 (E2E con Playwright): PASS genuino confirmado (2026-08-29)** —
+primera vez en el proyecto que el flujo completo (registro real vía Resend,
+confirmación, login, crear hogar, agregar pareja, registrar un gasto,
+editarlo) pasa de principio a fin por la UI real. Commit `24080df`.
+
+**Estado al 2026-08-29 (sesión 2, cierre): Mini-proyecto 1 en 14/15 tasks
+completos, sin ningún bloqueo activo.** Solo falta Task 15 (deploy a Vercel)
+para cerrar el mini-proyecto y tener la app accesible por URL real — lo
+único que falta para "ir live".
 
 **Pendiente inmediato al retomar (en este orden):**
-1. Responder/cerrar el ticket de soporte a Supabase con la aclaración de
-   que la causa fue propia, no de su plataforma (cortesía).
-2. Retomar y terminar Task 14 (E2E con Playwright) — ya no hay ningún
-   bloqueo de infraestructura, solo falta confirmar un PASS genuino de
-   punta a punta.
-3. Antes de hacer público el repo: arreglar M1 (correo real hardcodeado en
-   el test E2E).
-4. Task 15: despliegue a Vercel + reporte de fase que cierra el Mini-proyecto 1.
+1. **Task 15: desplegar a Vercel** — es lo único que falta para que
+   Gustavo y Esperanza puedan usar la app de verdad. Incluye verificación
+   final de la Definition of Done y el reporte de fase que cierra el
+   Mini-proyecto 1.
+2. Responder/cerrar el ticket de soporte a Supabase con la aclaración de
+   que la causa fue propia, no de su plataforma (cortesía, no bloqueante).
+3. M2, M3, M4 de la auditoría — mejoras de robustez, sin apuro.
 
 ---
 
@@ -76,7 +80,7 @@ fase.
 | # | Mini-proyecto | Estado |
 |---|---|---|
 | 0 | Fundación (carpeta, repo, docs, tablero de Notion como PM) | Prácticamente completa — repo, docs de PM, ADRs y tablero de Notion en vivo; falta solo decidir si se sube el repo a GitHub |
-| 1 | Núcleo de la app (auth, hogares, gastos, reparto, balance) | **12 de 15 tasks completos** (implementación vía subagentes en `.worktrees/mvp-nucleo`) — ver "Estado actual" abajo |
+| 1 | Núcleo de la app (auth, hogares, gastos, reparto, balance) | **14 de 15 tasks completos** — solo falta Task 15 (deploy). Ver el "Resumen rápido" arriba para el estado más reciente |
 | 2 | Presupuestos y Dashboard | No iniciado |
 | 3 | Deploy y pulido móvil (PWA) | No iniciado |
 | 4 (futuro) | Notion API / multi-hogar real | No iniciado, sin fecha |
