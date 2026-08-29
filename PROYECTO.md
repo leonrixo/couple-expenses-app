@@ -8,20 +8,37 @@ compras grandes) y balance vivo de quién le debe a quién. Reemplaza el Excel
 manual analizado el 2026-08-27. También es caso de estudio de PM para el
 portafolio de Gustavo (ver [conseguir-jale](../conseguir-jale/PROYECTO.md)).
 
-**Estado al 2026-08-29:** Mini-proyecto 1 (núcleo) en 14/15 tasks — Task 14
-(E2E Playwright) y una auditoría de seguridad corriendo en subagentes en
-segundo plano al momento de escribir esto (ver "Estado actual" abajo para el
-detalle exacto). Repo a punto de subirse a GitHub como privado bajo el nombre
-`couple-expenses-app`.
+**🚨 BLOQUEO CRÍTICO DE PRODUCCIÓN (2026-08-29):** ahora mismo **nadie puede
+crear un hogar en la app real** — cualquier usuario autenticado, verificado
+de 3 formas independientes, recibe "new row violates row-level security
+policy for table households" al insertar, aunque el JWT es válido y la
+política (`auth.uid() is not null`) debería dejarlo pasar. Hipótesis (sin
+confirmar, requiere el dashboard de Supabase): desfase de JWT signing keys
+tras adoptar el sistema nuevo de API keys de Supabase (`sb_publishable_...`).
+**Esto es más urgente que terminar Task 14 o que cualquier otra cosa en este
+proyecto** — ver el ledger (`.worktrees/mvp-nucleo/.superpowers/sdd/2026-08-27-nucleo-app-mvp-plan/progress.md`,
+sección "Task 14 resume (2026-08-29)") para la evidencia completa y qué
+revisar en el dashboard (Settings → API Keys / JWT Signing Keys).
+
+**Estado al 2026-08-29:** Mini-proyecto 1 (núcleo) en 13/15 tasks completos.
+Task 14 (E2E Playwright) sigue bloqueada, ya no por el correo (eso se
+resolvió con Resend) sino por el bug crítico de arriba. Auditoría de
+seguridad despachada, resultado aún sin confirmar al cierre de esta
+actualización — revisar si ya escribió `docs/seguridad/2026-08-29-auditoria-seguridad.md`.
+Repo ya subido a GitHub como privado: `couple-expenses-app`
+(https://github.com/leonrixo/couple-expenses-app) — pero ANTES de estos
+últimos hallazgos, falta un `git push` más.
 
 **Pendiente inmediato al retomar (en este orden):**
-1. Confirmar que Task 14 (E2E) y la auditoría de seguridad terminaron limpio —
-   revisar `.worktrees/mvp-nucleo/.superpowers/sdd/2026-08-27-nucleo-app-mvp-plan/progress.md`
-   y `docs/seguridad/2026-08-29-auditoria-seguridad.md`.
-2. Si el push a GitHub no se completó en esta sesión, completarlo (repo
-   privado `couple-expenses-app`).
-3. Task 13 (editar % de reparto) — confirmar que quedó completo (ver ledger).
+1. **Resolver el bloqueo crítico de RLS/JWT de arriba** — sin esto, la app no
+   sirve para nadie en producción.
+2. Confirmar el veredicto de la auditoría de seguridad
+   (`docs/seguridad/2026-08-29-auditoria-seguridad.md`) antes de considerar
+   hacer público el repo.
+3. Retomar y terminar Task 14 (E2E) una vez resuelto el bloqueo.
 4. Task 15: despliegue a Vercel + reporte de fase que cierra el Mini-proyecto 1.
+5. `git push` de los commits nuevos de esta sesión (el push a GitHub se hizo
+   antes de que terminaran estos últimos hallazgos).
 
 ---
 
