@@ -4,6 +4,14 @@ import { redirect } from "next/navigation";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { joinHouseholdSchema } from "@/lib/validation/household";
 
+// Mitigación de I2 (auditoría de seguridad 2026-08-29): sin esto, un usuario
+// autenticado podía probar códigos de invitación sin límite -- esta Server
+// Action no pasa por el rate limiting propio de Supabase Auth. Ventana
+// deslizante simple contra household_invite_attempts (ver migración 0005),
+// sin infraestructura externa nueva.
+const ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
+const MAX_ATTEMPTS_PER_WINDOW = 10;
+
 export async function joinHousehold(prevState: { error: string | null }, formData: FormData) {
   const parsed = joinHouseholdSchema.safeParse({ code: formData.get("code") });
   if (!parsed.success) {
@@ -17,6 +25,26 @@ export async function joinHousehold(prevState: { error: string | null }, formDat
   }
 
   const admin = createServiceRoleClient();
+
+  const windowStart = new Date(Date.now() - ATTEMPT_WINDOW_MS).toISOString();
+  const { count: recentAttempts, error: countError } = await admin
+    .from("household_invite_attempts")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userData.user.id)
+    .gte("attempted_at", windowStart);
+
+  if (countError) {
+    return { error: countError.message };
+  }
+  if ((recentAttempts ?? 0) >= MAX_ATTEMPTS_PER_WINDOW) {
+    return { error: "Demasiados intentos, espera unos minutos e intenta de nuevo" };
+  }
+
+  // Se registra el intento ANTES de validar el código (sea válido o no
+  // cuenta para el límite -- lo que se limita es la cantidad de canjes
+  // probados, no solo los fallidos).
+  await admin.from("household_invite_attempts").insert({ user_id: userData.user.id });
+
   const { data: invite } = await admin
     .from("household_invites")
     .select("*")
