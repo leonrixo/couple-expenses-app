@@ -29,9 +29,11 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get("type") as EmailOtpType | null;
 
   // Solo se permite un destino relativo dentro de la propia app: evita que
-  // el enlace del correo pueda usarse como open redirect (?next=https://...).
+  // el enlace del correo pueda usarse como open redirect (?next=https://... o
+  // ?next=//evil.com, que el navegador también resuelve como externo pese a
+  // empezar con "/").
   const nextParam = searchParams.get("next");
-  const next = nextParam && nextParam.startsWith("/") ? nextParam : "/reset-password";
+  const next = nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/reset-password";
 
   const supabase = await createClient();
 
