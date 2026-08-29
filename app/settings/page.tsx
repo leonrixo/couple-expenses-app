@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InviteCodeButton } from "./invite-code-button";
+import { SplitPercentageForm } from "./split-percentage-form";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -12,14 +13,17 @@ export default async function SettingsPage() {
 
   const { data: memberships } = await supabase
     .from("household_members")
-    .select("household_id")
+    .select("household_id, default_split_percentage")
     .eq("user_id", userData.user.id)
     .limit(1);
 
-  const householdId = memberships?.[0]?.household_id;
-  if (!householdId) {
+  const membership = memberships?.[0];
+  const householdId = membership?.household_id;
+  if (!householdId || !membership) {
     redirect("/onboarding");
   }
+
+  const currentPercentage = Number(membership.default_split_percentage);
 
   return (
     <div className="mx-auto mt-16 max-w-md space-y-6 px-4">
@@ -35,6 +39,18 @@ export default async function SettingsPage() {
           <div className="mt-3">
             <InviteCodeButton householdId={householdId} />
           </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Reparto de gastos regulares</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="mb-3 text-sm text-muted-foreground">
+            Define qué porcentaje de los gastos regulares te corresponde a ti. Entre los miembros del hogar debe
+            sumar 100%.
+          </p>
+          <SplitPercentageForm householdId={householdId} currentPercentage={currentPercentage} />
         </CardContent>
       </Card>
     </div>
