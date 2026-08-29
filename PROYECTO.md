@@ -28,57 +28,71 @@ GRANTs de la tabla— está confirmado correcto.
 
 **Ticket enviado a soporte de Supabase (2026-08-29)** — categoría "APIs and
 client libraries", servicios "Authentication"+"Database", librería
-"JavaScript", severidad alta. Sin ETA de respuesta. Mientras se espera,
-sesión trabajando en paralelo en dos frentes que NO dependen de este
-bloqueo (ver "Trabajo en paralelo mientras se espera a Supabase" abajo).
-**Esto sigue siendo más urgente que terminar Task 14 o que cualquier otra
-cosa en este proyecto** — en cuanto Supabase responda o se confirme un
-workaround viable, retomar esto primero.
+"JavaScript", severidad alta. Sin respuesta todavía. **Se encontró un
+incidente real de plataforma que probablemente esté relacionado** ("401
+errors due to JWT rejections", abierto desde el 14 de agosto, status
+`identified` — sigue sin resolverse oficialmente); Supabase recomendó
+reiniciar el proyecto después de su rollout del 27 de agosto — **ya se hizo
+ese restart hoy y el problema sigue exactamente igual**, así que no es (o no
+es solo) la causa. Se analizaron 3 exports reales de logs del dashboard
+(Auth, API/Edge, Postgres): confirman que el JWT y su verificación en el
+Gateway están perfectos (`auth_user` se resuelve correctamente), y que el
+rechazo ocurre genuinamente en Postgres (`42501`) — el corte está acotado
+específicamente entre PostgREST y Postgres. Vale la pena responder al
+ticket con esta evidencia nueva. **Esto sigue siendo más urgente que
+cualquier otra cosa en este proyecto.**
 
-### Trabajo en paralelo mientras se espera a Supabase (2026-08-29)
+### Trabajo en paralelo mientras se espera a Supabase — completado (2026-08-29)
 
-Delegado a subagentes en background (rol de PM: yo delego, reviso y
-comiteo/pusheo el resultado, no confiar en el reporte del agente sin
-revisar el diff real):
-1. **Investigación de workarounds** — agente de research buscando
-   reportes conocidos de este bug en GitHub/foros/status page de Supabase,
-   y evaluando si vale la pena un workaround de aplicación (bypass RLS con
-   service-role + validación manual en Server Action) como plan B temporal.
-2. **Fix de I1** (recuperar contraseña roto) — agente `nextjs-expert`
-   implementando la ruta de intercambio `app/auth/confirm/route.ts` que
-   falta, verificando primero si el proyecto real usa flujo PKCE u OTP
-   antes de escribir el código (no asumir).
+Delegado a subagentes en background, revisado y comiteado por el
+controller (no se confió en ningún reporte de agente sin revisar el diff
+real y, cuando tocaba RLS/permisos, verificar en vivo contra Postgres):
 
-Pendiente para después: I2 (throttling de invitación) e I3 (enumeración de
-correo en signup) — se despachan en cuanto el fix de I1 esté revisado, para
-no correr dos agentes en paralelo sobre el mismo worktree.
+- **I1 (recuperar contraseña roto): cerrado.** Ruta `app/auth/confirm/route.ts`
+  agregada (soporta PKCE, confirmado como el flujo real del proyecto, y OTP
+  por si acaso). La revisión del controller encontró y cerró un hueco de
+  open-redirect que el agente no detectó (`?next=//evil.com` no estaba
+  bloqueado). Commits `03df014` + `33678b5`.
+- **I2 (código de invitación débil) + I3 (enumeración de correo): cerrados.**
+  Entropía del código subida de 32 a 64 bits, throttling nuevo (tabla
+  `household_invite_attempts`, solo accesible por `service_role`, verificado
+  en vivo), signup ya no revela si un correo está registrado. Commit
+  `06e2f6e`.
+- **Investigación de workarounds** — confirmó el incidente de Supabase de
+  arriba y evaluó un plan B (bypass de RLS con service-role + validación
+  manual en la Server Action de creación de hogar) como medida temporal si
+  Supabase no responde pronto — pendiente de decisión del usuario, ver el
+  ledger para el análisis completo de pros/contras.
+
+Quedan solo los hallazgos Menores (M1-M4) de la auditoría de seguridad.
 
 **Estado al 2026-08-29 (sesión 2):** Mini-proyecto 1 (núcleo) en 13/15 tasks
 completos. Task 14 (E2E Playwright) sigue bloqueada, ya no por el correo (eso
-se resolvió con Resend) sino por el bug crítico de RLS/JWT de abajo.
-**Auditoría de seguridad completa**, hallazgo **Crítico C1 ya cerrado**
-(commit `cb7a7cb`, pusheado): políticas de UPDATE en
-`household_members`/`transactions` ahora tienen `WITH CHECK` + triggers de
-inmutabilidad (`household_id`/`user_id`/`role`), verificado en vivo con 4
-tests nuevos de ataque real + 42/42 suite completa + build limpio. Quedan 3
-Importantes y 4 Menores del reporte de auditoría, ver
-`docs/seguridad/2026-08-29-auditoria-seguridad.md`. Repo ya subido a GitHub
-como privado: `couple-expenses-app`
+se resolvió con Resend) sino por el bug crítico de RLS/JWT de arriba.
+**Auditoría de seguridad: C1, I1, I2 e I3 ya cerrados** (commits `cb7a7cb`,
+`03df014`, `33678b5`, `06e2f6e`, todos pusheados) — solo quedan los 4
+hallazgos Menores (M1-M4), ninguno bloqueante. Ver
+`docs/seguridad/2026-08-29-auditoria-seguridad.md` para el detalle de cada
+uno. Repo ya subido a GitHub como privado: `couple-expenses-app`
 (https://github.com/leonrixo/couple-expenses-app).
 
-**🚨 Sigue sin resolverse el bloqueo crítico de RLS/JWT de arriba** — es lo
-único que falta para que Task 14 avance y para que la app sirva para alguien
-real. Requiere acción del usuario en el dashboard, ver más abajo.
+**🚨 Sigue sin resolverse el bloqueo crítico de RLS/JWT de arriba** — ya se
+agotaron todas las acciones conocidas del lado del dashboard/usuario (ver
+arriba). Es lo único que falta para que Task 14 avance y para que la app
+sirva para alguien real. Esperando respuesta de Supabase, o decisión del
+usuario sobre el workaround temporal.
 
 **Pendiente inmediato al retomar (en este orden):**
-1. **Resolver el bloqueo crítico de RLS/JWT** (el de arriba) — las 3 acciones
-   disponibles en el dashboard ya se probaron sin éxito (restart, rotar JWT
-   key, reiniciar Data API). Siguiente paso: **abrir un ticket a soporte de
-   Supabase** (solo el usuario puede hacerlo) con la evidencia del ledger.
-   Sin esto, la app no sirve para nadie en producción.
+1. **Resolver el bloqueo crítico de RLS/JWT** (el de arriba) — todas las
+   acciones conocidas del dashboard agotadas (restart ×2, rotar JWT key,
+   reiniciar Data API). Ticket a soporte de Supabase ya enviado, sin
+   respuesta todavía. Considerar responder al ticket con la evidencia de los
+   logs reales (ver ledger) y/o decidir si implementar el workaround
+   temporal (bypass con service-role) mientras se espera. Sin esto, la app
+   no sirve para nadie en producción.
 2. ~~Arreglar el hallazgo Crítico C1~~ — **hecho** (commit `cb7a7cb`).
-3. Los hallazgos Importantes de la auditoría (I1 recuperar contraseña, I2
-   throttling de invitación, I3 enumeración de correo).
+3. ~~Los hallazgos Importantes de la auditoría (I1, I2, I3)~~ — **hechos**
+   (commits `03df014`, `33678b5`, `06e2f6e`).
 4. Retomar y terminar Task 14 (E2E) una vez resuelto el punto 1.
 5. Antes de hacer público el repo: arreglar M1 (correo real hardcodeado en
    el test E2E).
