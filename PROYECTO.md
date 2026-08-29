@@ -8,95 +8,59 @@ compras grandes) y balance vivo de quién le debe a quién. Reemplaza el Excel
 manual analizado el 2026-08-27. También es caso de estudio de PM para el
 portafolio de Gustavo (ver [conseguir-jale](../conseguir-jale/PROYECTO.md)).
 
-**🚨 BLOQUEO CRÍTICO DE PRODUCCIÓN (sin resolver al 2026-08-29, sesión 2):**
-ahora mismo **nadie puede crear un hogar en la app real** — cualquier
-usuario autenticado recibe "new row violates row-level security policy for
-table households" al insertar, aunque el JWT es perfectamente válido
-(verificado decodificándolo: `sub`/`role`/`aud` correctos, firmado con la
-key actual) y la política (`auth.uid() is not null`) debería dejarlo pasar.
+**✅ BLOQUEO CRÍTICO DE PRODUCCIÓN: RESUELTO (2026-08-29, sesión 2)** — no
+era un bug de Supabase. Fue una investigación larga (rotación de JWT keys,
+restarts, análisis de logs reales, ticket de soporte abierto) que llevó por
+mal camino: el JWT, `auth.uid()` y el Gateway de Supabase siempre
+funcionaron perfecto. La causa real era un bug propio en
+`app/onboarding/create-household-actions.ts`: pedía la fila recién
+insertada de vuelta (`.select()` / `RETURNING`) antes de que el usuario
+fuera miembro del hogar, y la política de SELECT de `households`
+(`is_household_member`) rechazaba esa lectura con el mismo error que una
+violación real de RLS — aunque el INSERT en sí nunca falló. Presente desde
+la Task 8 (2026-08-28), nunca detectado porque ningún test anterior ejercía
+este flujo exacto con una sesión real (todos usaban service-role).
+**Fix:** el id del hogar se genera en el cliente en vez de pedirlo de
+vuelta — sin bypass de RLS, arquitectura de seguridad intacta. Commit
+`d6a1af6`, verificado en vivo, test de regresión agregado, 46/46 suite,
+build limpio, pusheado.
 
-**Se agotaron las 3 acciones correctivas disponibles en el dashboard, ninguna
-lo arregló** (cada una reverificada en vivo con un usuario desechable nuevo
-después): (1) restart completo del proyecto, (2) rotar la JWT signing key
-(crear standby + promoverla a current), (3) apagar/prender el toggle
-"Enable Data API" en Integrations → Data API (reinicia solo la capa
-PostgREST). Tampoco es viable revertir a la Legacy JWT Secret (el dashboard
-no lo permite con un botón simple, y de todos modos este proyecto ya no usa
-el formato de API keys que esa key legacy verifica). Todo lo verificable
-desde este lado —el JWT, la función `auth.uid()`, la política RLS, los
-GRANTs de la tabla— está confirmado correcto.
+**Pendiente de cortesía:** responder/cerrar el ticket ya abierto a Supabase
+aclarando que no era su bug (para no gastarles tiempo de triage) — el
+incidente público que se encontró en el camino ("401 errors due to JWT
+rejections") sigue siendo real pero no era la causa de este caso.
 
-**Ticket enviado a soporte de Supabase (2026-08-29)** — categoría "APIs and
-client libraries", servicios "Authentication"+"Database", librería
-"JavaScript", severidad alta. Sin respuesta todavía. **Se encontró un
-incidente real de plataforma que probablemente esté relacionado** ("401
-errors due to JWT rejections", abierto desde el 14 de agosto, status
-`identified` — sigue sin resolverse oficialmente); Supabase recomendó
-reiniciar el proyecto después de su rollout del 27 de agosto — **ya se hizo
-ese restart hoy y el problema sigue exactamente igual**, así que no es (o no
-es solo) la causa. Se analizaron 3 exports reales de logs del dashboard
-(Auth, API/Edge, Postgres): confirman que el JWT y su verificación en el
-Gateway están perfectos (`auth_user` se resuelve correctamente), y que el
-rechazo ocurre genuinamente en Postgres (`42501`) — el corte está acotado
-específicamente entre PostgREST y Postgres. Vale la pena responder al
-ticket con esta evidencia nueva. **Esto sigue siendo más urgente que
-cualquier otra cosa en este proyecto.**
+### Auditoría de seguridad + bloqueo crítico — todo resuelto (2026-08-29)
 
-### Trabajo en paralelo mientras se espera a Supabase — completado (2026-08-29)
+- **C1** (RLS UPDATE sin WITH CHECK) — cerrado, commit `cb7a7cb`.
+- **I1** (recuperar contraseña roto) — cerrado, commits `03df014` + `33678b5`
+  (la revisión del controller encontró y cerró un open-redirect que el
+  subagente no detectó).
+- **I2** (código de invitación débil) **+ I3** (enumeración de correo) —
+  cerrados, commit `06e2f6e`.
+- **Bloqueo crítico RLS/JWT en INSERT de households** — cerrado, commit
+  `d6a1af6` (ver arriba).
 
-Delegado a subagentes en background, revisado y comiteado por el
-controller (no se confió en ningún reporte de agente sin revisar el diff
-real y, cuando tocaba RLS/permisos, verificar en vivo contra Postgres):
+Quedan solo los hallazgos Menores (M1-M4) de la auditoría, ninguno
+bloqueante. Ver `docs/seguridad/2026-08-29-auditoria-seguridad.md`.
+Repo privado en GitHub: `couple-expenses-app`
+(https://github.com/leonrixo/couple-expenses-app), rama `mvp-nucleo` al
+día con todo lo anterior.
 
-- **I1 (recuperar contraseña roto): cerrado.** Ruta `app/auth/confirm/route.ts`
-  agregada (soporta PKCE, confirmado como el flujo real del proyecto, y OTP
-  por si acaso). La revisión del controller encontró y cerró un hueco de
-  open-redirect que el agente no detectó (`?next=//evil.com` no estaba
-  bloqueado). Commits `03df014` + `33678b5`.
-- **I2 (código de invitación débil) + I3 (enumeración de correo): cerrados.**
-  Entropía del código subida de 32 a 64 bits, throttling nuevo (tabla
-  `household_invite_attempts`, solo accesible por `service_role`, verificado
-  en vivo), signup ya no revela si un correo está registrado. Commit
-  `06e2f6e`.
-- **Investigación de workarounds** — confirmó el incidente de Supabase de
-  arriba y evaluó un plan B (bypass de RLS con service-role + validación
-  manual en la Server Action de creación de hogar) como medida temporal si
-  Supabase no responde pronto — pendiente de decisión del usuario, ver el
-  ledger para el análisis completo de pros/contras.
-
-Quedan solo los hallazgos Menores (M1-M4) de la auditoría de seguridad.
-
-**Estado al 2026-08-29 (sesión 2):** Mini-proyecto 1 (núcleo) en 13/15 tasks
-completos. Task 14 (E2E Playwright) sigue bloqueada, ya no por el correo (eso
-se resolvió con Resend) sino por el bug crítico de RLS/JWT de arriba.
-**Auditoría de seguridad: C1, I1, I2 e I3 ya cerrados** (commits `cb7a7cb`,
-`03df014`, `33678b5`, `06e2f6e`, todos pusheados) — solo quedan los 4
-hallazgos Menores (M1-M4), ninguno bloqueante. Ver
-`docs/seguridad/2026-08-29-auditoria-seguridad.md` para el detalle de cada
-uno. Repo ya subido a GitHub como privado: `couple-expenses-app`
-(https://github.com/leonrixo/couple-expenses-app).
-
-**🚨 Sigue sin resolverse el bloqueo crítico de RLS/JWT de arriba** — ya se
-agotaron todas las acciones conocidas del lado del dashboard/usuario (ver
-arriba). Es lo único que falta para que Task 14 avance y para que la app
-sirva para alguien real. Esperando respuesta de Supabase, o decisión del
-usuario sobre el workaround temporal.
+**Estado al 2026-08-29 (sesión 2, cierre):** Mini-proyecto 1 (núcleo) en
+13/15 tasks completos, **sin ningún bloqueo activo**. Task 14 (E2E
+Playwright) ya puede retomarse — el bug que la bloqueaba está resuelto y
+verificado.
 
 **Pendiente inmediato al retomar (en este orden):**
-1. **Resolver el bloqueo crítico de RLS/JWT** (el de arriba) — todas las
-   acciones conocidas del dashboard agotadas (restart ×2, rotar JWT key,
-   reiniciar Data API). Ticket a soporte de Supabase ya enviado, sin
-   respuesta todavía. Considerar responder al ticket con la evidencia de los
-   logs reales (ver ledger) y/o decidir si implementar el workaround
-   temporal (bypass con service-role) mientras se espera. Sin esto, la app
-   no sirve para nadie en producción.
-2. ~~Arreglar el hallazgo Crítico C1~~ — **hecho** (commit `cb7a7cb`).
-3. ~~Los hallazgos Importantes de la auditoría (I1, I2, I3)~~ — **hechos**
-   (commits `03df014`, `33678b5`, `06e2f6e`).
-4. Retomar y terminar Task 14 (E2E) una vez resuelto el punto 1.
-5. Antes de hacer público el repo: arreglar M1 (correo real hardcodeado en
+1. Responder/cerrar el ticket de soporte a Supabase con la aclaración de
+   que la causa fue propia, no de su plataforma (cortesía).
+2. Retomar y terminar Task 14 (E2E con Playwright) — ya no hay ningún
+   bloqueo de infraestructura, solo falta confirmar un PASS genuino de
+   punta a punta.
+3. Antes de hacer público el repo: arreglar M1 (correo real hardcodeado en
    el test E2E).
-6. Task 15: despliegue a Vercel + reporte de fase que cierra el Mini-proyecto 1.
+4. Task 15: despliegue a Vercel + reporte de fase que cierra el Mini-proyecto 1.
 
 ---
 
