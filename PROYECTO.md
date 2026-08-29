@@ -8,20 +8,29 @@ compras grandes) y balance vivo de quién le debe a quién. Reemplaza el Excel
 manual analizado el 2026-08-27. También es caso de estudio de PM para el
 portafolio de Gustavo (ver [conseguir-jale](../conseguir-jale/PROYECTO.md)).
 
-**🚨 BLOQUEO CRÍTICO DE PRODUCCIÓN (2026-08-29):** ahora mismo **nadie puede
-crear un hogar en la app real** — cualquier usuario autenticado, verificado
-de 3 formas independientes, recibe "new row violates row-level security
-policy for table households" al insertar, aunque el JWT es válido y la
-política (`auth.uid() is not null`) debería dejarlo pasar. **Ya se probó
-reiniciar el proyecto desde el dashboard (2026-08-29) y NO lo arregló**
-(re-verificado en vivo justo después del restart, mismo error exacto).
-Hipótesis aún sin confirmar: desfase de JWT signing keys tras adoptar el
-sistema nuevo de API keys de Supabase (`sb_publishable_...`) — el siguiente
-paso es revisar directamente Project Settings → API → JWT Keys/Signing Keys
-en el dashboard (no hecho todavía). **Esto es más urgente que terminar
-Task 14 o que cualquier otra cosa en este proyecto** — ver el ledger (`.worktrees/mvp-nucleo/.superpowers/sdd/2026-08-27-nucleo-app-mvp-plan/progress.md`,
-sección "Task 14 resume (2026-08-29)") para la evidencia completa y qué
-revisar en el dashboard (Settings → API Keys / JWT Signing Keys).
+**🚨 BLOQUEO CRÍTICO DE PRODUCCIÓN (sin resolver al 2026-08-29, sesión 2):**
+ahora mismo **nadie puede crear un hogar en la app real** — cualquier
+usuario autenticado recibe "new row violates row-level security policy for
+table households" al insertar, aunque el JWT es perfectamente válido
+(verificado decodificándolo: `sub`/`role`/`aud` correctos, firmado con la
+key actual) y la política (`auth.uid() is not null`) debería dejarlo pasar.
+
+**Se agotaron las 3 acciones correctivas disponibles en el dashboard, ninguna
+lo arregló** (cada una reverificada en vivo con un usuario desechable nuevo
+después): (1) restart completo del proyecto, (2) rotar la JWT signing key
+(crear standby + promoverla a current), (3) apagar/prender el toggle
+"Enable Data API" en Integrations → Data API (reinicia solo la capa
+PostgREST). Tampoco es viable revertir a la Legacy JWT Secret (el dashboard
+no lo permite con un botón simple, y de todos modos este proyecto ya no usa
+el formato de API keys que esa key legacy verifica). Todo lo verificable
+desde este lado —el JWT, la función `auth.uid()`, la política RLS, los
+GRANTs de la tabla— está confirmado correcto.
+
+**Siguiente paso: abrir un ticket a soporte de Supabase** con la evidencia ya
+recopilada (ver el ledger, sección "Bloqueo #1 (RLS/JWT): diagnóstico
+exhaustivo en vivo con el usuario") — esto ya no es accionable desde el
+dashboard sin ayuda de Supabase. **Esto sigue siendo más urgente que
+terminar Task 14 o que cualquier otra cosa en este proyecto.**
 
 **Estado al 2026-08-29 (sesión 2):** Mini-proyecto 1 (núcleo) en 13/15 tasks
 completos. Task 14 (E2E Playwright) sigue bloqueada, ya no por el correo (eso
@@ -41,11 +50,11 @@ como privado: `couple-expenses-app`
 real. Requiere acción del usuario en el dashboard, ver más abajo.
 
 **Pendiente inmediato al retomar (en este orden):**
-1. **Resolver el bloqueo crítico de RLS/JWT** (el de arriba) — reiniciar el
-   proyecto NO lo arregló (ya probado); siguiente paso es revisar Project
-   Settings → API → JWT Keys/Signing Keys en el dashboard de Supabase. Sin
-   esto, la app no sirve para nadie en producción. **Solo el usuario puede
-   hacer este paso** (requiere el dashboard de Supabase).
+1. **Resolver el bloqueo crítico de RLS/JWT** (el de arriba) — las 3 acciones
+   disponibles en el dashboard ya se probaron sin éxito (restart, rotar JWT
+   key, reiniciar Data API). Siguiente paso: **abrir un ticket a soporte de
+   Supabase** (solo el usuario puede hacerlo) con la evidencia del ledger.
+   Sin esto, la app no sirve para nadie en producción.
 2. ~~Arreglar el hallazgo Crítico C1~~ — **hecho** (commit `cb7a7cb`).
 3. Los hallazgos Importantes de la auditoría (I1 recuperar contraseña, I2
    throttling de invitación, I3 enumeración de correo).
