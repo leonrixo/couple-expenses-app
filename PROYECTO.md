@@ -22,7 +22,7 @@ fase.
 | # | Mini-proyecto | Estado |
 |---|---|---|
 | 0 | Fundación (carpeta, repo, docs, tablero de Notion como PM) | Prácticamente completa — repo, docs de PM, ADRs y tablero de Notion en vivo; falta solo decidir si se sube el repo a GitHub |
-| 1 | Núcleo de la app (auth, hogares, gastos, reparto, balance) | Diseño aprobado, spec escrita en [docs/superpowers/specs/2026-08-27-nucleo-app-mvp-design.md](docs/superpowers/specs/2026-08-27-nucleo-app-mvp-design.md), backlog en [docs/pm/03-backlog-mini-proyecto-1.md](docs/pm/03-backlog-mini-proyecto-1.md) — falta resolver 2 preguntas abiertas del backlog y luego el plan de implementación |
+| 1 | Núcleo de la app (auth, hogares, gastos, reparto, balance) | **11 de 15 tasks completos** (implementación vía subagentes en `.worktrees/mvp-nucleo`) — Task 12 a medias, ver "Estado actual" abajo |
 | 2 | Presupuestos y Dashboard | No iniciado |
 | 3 | Deploy y pulido móvil (PWA) | No iniciado |
 | 4 (futuro) | Notion API / multi-hogar real | No iniciado, sin fecha |
@@ -42,12 +42,29 @@ Detalle completo de cada decisión y el porqué en la spec de Mini-proyecto 1.
 
 ## Estado actual
 
-2026-08-27 — Spec técnica y documentación de PM del Mini-proyecto 1 completas,
-consistentes y commiteadas (4 commits). Las 3 preguntas abiertas que detectó el
-agente de PM al armar el backlog ya están resueltas: login con email+contraseña
-(con recuperación), editar/borrar gastos entra al Mini-proyecto 1, y el
-`default_split_percentage` se fija al crear el hogar. Falta: revisión final del
-usuario y generar el plan de implementación (`writing-plans`).
+2026-08-28 — Implementación del Mini-proyecto 1 en curso vía Subagent-Driven
+Development, en el worktree `.worktrees/mvp-nucleo` (branch `mvp-nucleo`), **no**
+en `master`. **11 de 15 tasks completos y revisados limpio** (commits
+`2aa0492`..`866bd3c`): scaffolding, clientes de Supabase, todo el esquema de
+base de datos con RLS (incluida la prueba de aislamiento entre dos hogares
+reales — historia de más riesgo del proyecto), el módulo de cálculo de reparto
+y balance (con un bug de redondeo real encontrado y corregido en revisión),
+autenticación completa, creación de hogar, invitaciones, y registrar/editar/
+borrar un gasto.
+
+**Task 12 (página principal con balance en vivo) quedó a medias** — sesión
+pausada a propósito por el usuario (contexto de la conversación muy grande).
+Hay archivos sin commitear en el worktree (`app/page.tsx` modificado,
+`app/balance.test.ts`/`components/balance-card.tsx`/`components/transactions-table.tsx`
+sin trackear) que no se descartaron. El ledger completo con el detalle exacto
+de cómo retomarlo está en
+`.worktrees/mvp-nucleo/.superpowers/sdd/2026-08-27-nucleo-app-mvp-plan/progress.md`
+— léelo primero en la próxima sesión, tiene instrucciones precisas de si
+conviene retomar ese trabajo sin commitear o descartarlo y redespachar Task 12
+limpio.
+
+Quedan las Tasks 12 (terminar) a 15 (editar % de reparto, prueba E2E con
+Playwright, y despliegue a Vercel + verificación final de Definition of Done).
 
 **Notion: tablero de PM ya montado y en vivo.** Página raíz:
 https://app.notion.com/p/Gastos-en-pareja-PM-3c9534bc10b480cf8cf9e64c5917b7e1 —
@@ -87,7 +104,7 @@ git — Notion es la vista de seguimiento para el usuario como PM.
 - [x] Documentación de PM (charter, roadmap, backlog, DoD) y ADRs
 - [x] Resolver las 3 preguntas abiertas del backlog
 - [x] Plan de implementación (skill `writing-plans`) — [docs/superpowers/plans/2026-08-27-nucleo-app-mvp-plan.md](docs/superpowers/plans/2026-08-27-nucleo-app-mvp-plan.md), 15 tasks
-- [ ] El usuario requiere crear un proyecto en supabase.com antes del Task 2 (URL + anon key + service role key)
-- [ ] Implementación del Mini-proyecto 1 (subagentes)
+- [x] El usuario creó el proyecto en supabase.com antes del Task 2 (URL + anon key + service role key + DATABASE_URL, todo en `.env.local` git-ignored)
+- [ ] Implementación del Mini-proyecto 1 (subagentes) — **11/15 tasks, en curso**, ver "Estado actual"
 - [ ] Reporte de fase del Mini-proyecto 1
 - [x] Compartir una página de Notion con la integración y montar el tablero de PM
